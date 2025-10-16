@@ -1,0 +1,25 @@
+# Test configuration for integration tests (small, fast runs)
+
+device:
+  F1: 0.99926
+  F2: 0.998
+  T1: 1.0
+  T2: 99.0e-6
+  T2_star: 20.0e-6
+  t_single_gate: 60.0e-9
+  t_two_gate: 40.0e-9
+  F_readout: 0.9997
+  F_init: 0.994
+  t_readout: 10.0e-6
+
+simulation:
+  backend: "statevector"
+  n_circuits: 10          # Small for testing
+  n_shots: 500            # Small for testing
+  widths: [2, 3, 4]       # Limited range for testing
+  random_seed: 12345
+
+metadata:
+  experiment_name: "test_pipeline"
+  description: "Integration test configuration with reduced circuit/shot counts"
+  notes: "Used for pytest integration tests"

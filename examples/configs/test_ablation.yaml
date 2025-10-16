@@ -1,0 +1,26 @@
+# Test configuration for ablation studies
+# Small parameter set for fast integration testing
+
+device:
+  F1: 0.999
+  F2: 0.998
+  T1: 1.0
+  T2: 99.0e-6
+  T2_star: 20.0e-6
+  t_single_gate: 60.0e-9
+  t_two_gate: 40.0e-9
+  F_readout: 0.999
+  F_init: 0.994
+  t_readout: 10.0e-6
+
+simulation:
+  backend: "statevector"
+  n_circuits: 5           # Small number for fast testing
+  n_shots: 200            # Reduced shots
+  widths: [2, 3]          # Only small widths
+  random_seed: 12345
+
+metadata:
+  experiment_name: "test_ablation"
+  description: "Small ablation test for integration testing"
+  notes: "Fast configuration for CI/testing"

@@ -1,0 +1,26 @@
+# Configuration for 4x4 parameter sensitivity grid
+# Testing F1 and F2 parameter space
+
+device:
+  F1: 0.999             # Will be swept in grid
+  F2: 0.998             # Will be swept in grid
+  T1: 1.0
+  T2: 99.0e-6
+  T2_star: 20.0e-6
+  t_single_gate: 60.0e-9
+  t_two_gate: 40.0e-9
+  F_readout: 0.9997
+  F_init: 0.994
+  t_readout: 10.0e-6
+
+simulation:
+  backend: "statevector"
+  n_circuits: 15          # Moderate number for grid
+  n_shots: 500
+  widths: [2, 3, 4]       # Multiple widths
+  random_seed: 54321
+
+metadata:
+  experiment_name: "sensitivity_grid_4x4"
+  description: "4x4 parameter grid for F1 and F2 sensitivity analysis"
+  notes: "Exploring gate fidelity parameter space"
