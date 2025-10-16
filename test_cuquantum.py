@@ -1,4 +1,9 @@
-import cuquantum
+try:
+	import cuquantum
+except Exception:  # pragma: no cover - optional dependency
+	import pytest
+
+	pytest.skip("cuquantum not installed; skipping cuquantum smoke test", allow_module_level=True)
 
 # Check the version of cuQuantum
 print("cuQuantum version:", cuquantum.__version__)

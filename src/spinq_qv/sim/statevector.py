@@ -13,13 +13,7 @@ import numpy as np
 from spinq_qv.sim.backend import SimulatorBackend
 
 
-# Try to import CuPy for GPU acceleration (optional)
-try:
-    import cupy as cp
-    CUPY_AVAILABLE = True
-except ImportError:
-    cp = None
-    CUPY_AVAILABLE = False
+# CPU-only implementation: use NumPy for all array operations
 
 
 class StatevectorBackend(SimulatorBackend):
@@ -34,10 +28,10 @@ class StatevectorBackend(SimulatorBackend):
     """
     
     def __init__(
-        self, 
-        n_qubits: int, 
+        self,
+        n_qubits: int,
         seed: Optional[int] = None,
-        use_gpu: bool = False
+        use_gpu: bool = False,
     ):
         """
         Initialize statevector simulator.
@@ -48,11 +42,11 @@ class StatevectorBackend(SimulatorBackend):
             use_gpu: If True and CuPy available, use GPU acceleration
         """
         super().__init__(n_qubits, seed)
-        
-        # Select NumPy or CuPy backend
-        self.use_gpu = use_gpu and CUPY_AVAILABLE
-        self.xp = cp if self.use_gpu else np
-        
+
+        # Force CPU-only NumPy backend (GPU support removed)
+        self.use_gpu = False
+        self.xp = np
+
         # Initialize state to |0...0⟩
         self.state: Optional[np.ndarray] = None
         self.init_state()
@@ -66,7 +60,7 @@ class StatevectorBackend(SimulatorBackend):
         """
         if state is None:
             # Initialize to computational basis state |0...0⟩
-            self.state = self.xp.zeros(2**self.n_qubits, dtype=np.complex128)
+            self.state = np.zeros(2**self.n_qubits, dtype=np.complex128)
             self.state[0] = 1.0
         else:
             # Validate and copy provided state
@@ -77,11 +71,10 @@ class StatevectorBackend(SimulatorBackend):
                 )
             
             # Normalize if needed
-            norm = self.xp.linalg.norm(state)
+            norm = np.linalg.norm(state)
             if abs(norm - 1.0) > 1e-10:
                 state = state / norm
-            
-            self.state = self.xp.array(state, dtype=np.complex128)
+            self.state = np.array(state, dtype=np.complex128)
     
     def apply_unitary(self, unitary: np.ndarray, targets: list[int]) -> None:
         """
@@ -97,81 +90,68 @@ class StatevectorBackend(SimulatorBackend):
             Reshape back to vector.
         """
         k = len(targets)
-        expected_dim = 2**k
-        
+        expected_dim = 2 ** k
+
         # Validate unitary dimensions
         if unitary.shape != (expected_dim, expected_dim):
             raise ValueError(
                 f"Unitary shape {unitary.shape} does not match "
                 f"expected ({expected_dim}, {expected_dim}) for {k} qubits"
             )
-        
+
         # Validate target qubit indices
         if not all(0 <= t < self.n_qubits for t in targets):
             raise ValueError(
                 f"Target qubits {targets} out of range [0, {self.n_qubits})"
             )
-        
-        # Convert unitary to appropriate backend (NumPy/CuPy)
-        unitary = self.xp.asarray(unitary, dtype=np.complex128)
-        
+
+        # Convert unitary to NumPy array
+        unitary = np.asarray(unitary, dtype=np.complex128)
+
         # Reshape state from (2^n,) to (2, 2, ..., 2) with n_qubits axes
         state_tensor = self.state.reshape([2] * self.n_qubits)
-        
+
         # Reshape unitary from (2^k, 2^k) to (2, 2, ..., 2, 2, 2, ..., 2)
         # with k output indices and k input indices
         unitary_tensor = unitary.reshape([2] * (2 * k))
-        
+
         # Build einsum string for contraction
-        # Example for 2-qubit gate on qubits [1, 3] in 4-qubit system:
-        # state indices: a,b,c,d (4 qubits)
-        # unitary indices: ef,bd (output indices e,f; input indices b,d)
-        # result indices: a,e,c,f
-        
         # Input state indices (lowercase letters)
         in_indices = [chr(ord('a') + i) for i in range(self.n_qubits)]
-        
+
         # Output unitary indices (map targets to new indices)
         out_indices = in_indices.copy()
         new_idx_start = ord('a') + self.n_qubits
         unitary_out = []
         unitary_in = []
-        
+
         for i, t in enumerate(targets):
             new_label = chr(new_idx_start + i)
             unitary_out.append(new_label)
             unitary_in.append(in_indices[t])
             out_indices[t] = new_label
-        
+
         # Build einsum expression
-        # Format: "abc...,ef...,bd...->aec..."
         state_idx = ''.join(in_indices)
         unitary_idx = ''.join(unitary_out) + ''.join(unitary_in)
         result_idx = ''.join(out_indices)
-        
+
         einsum_expr = f"{state_idx},{unitary_idx}->{result_idx}"
-        
+
         # Apply gate via tensor contraction
-        result_tensor = self.xp.einsum(einsum_expr, state_tensor, unitary_tensor)
-        
+        result_tensor = np.einsum(einsum_expr, state_tensor, unitary_tensor)
+
         # Reshape back to vector
-        self.state = result_tensor.reshape(2**self.n_qubits)
+        self.state = result_tensor.reshape(2 ** self.n_qubits)
     
     def get_statevector(self) -> np.ndarray:
         """Return the current statevector as NumPy array."""
-        if self.use_gpu:
-            return cp.asnumpy(self.state)
-        else:
-            return self.state.copy()
+        return self.state.copy()
     
     def get_probabilities(self) -> np.ndarray:
         """Compute Born rule probabilities |⟨x|ψ⟩|²."""
-        probs = self.xp.abs(self.state)**2
-        
-        if self.use_gpu:
-            return cp.asnumpy(probs)
-        else:
-            return probs.copy()
+        probs = np.abs(self.state) ** 2
+        return probs.copy()
     
     def measure(
         self, 
