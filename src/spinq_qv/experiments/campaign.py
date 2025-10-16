@@ -230,6 +230,11 @@ class ProductionCampaignRunner:
         Returns:
             Dictionary with campaign summary
         """
+        # Set campaign start time if not already set (for new or resumed campaigns)
+        if self.state.start_time is None:
+            self.state.start_time = datetime.now().isoformat()
+            self.state.save()
+        
         widths = self.config.simulation.widths
         pending_widths = self.state.get_pending_widths(widths)
         
@@ -337,6 +342,11 @@ class ProductionCampaignRunner:
         """
         import h5py
         
+        # Ensure start_time is set (for direct _run_single_width calls in tests)
+        if self.state.start_time is None:
+            self.state.start_time = datetime.now().isoformat()
+            self.state.save()
+        
         # Open campaign results file (create if doesn't exist)
         mode = 'a' if self.state.results_file.exists() else 'w'
         
@@ -346,13 +356,22 @@ class ProductionCampaignRunner:
                 meta_group = f.create_group('metadata')
                 meta_group.attrs['campaign_id'] = self.campaign_id
                 meta_group.attrs['config'] = json.dumps(self.config.model_dump(), indent=2)
-                # Only write start_time if it's set
-                if self.state.start_time is not None:
-                    meta_group.attrs['start_time'] = self.state.start_time
+                # start_time is guaranteed to be set now
+                meta_group.attrs['start_time'] = self.state.start_time
             
             # Create aggregated group if doesn't exist
             if 'aggregated' not in f:
                 f.create_group('aggregated')
+            
+            # Extract width-specific results from aggregated dict
+            # run_experiment returns {width: {mean_hop, ci_lower, ...}}
+            if width in results:
+                width_results = results[width]
+            elif str(width) in results:
+                width_results = results[str(width)]
+            else:
+                # Fallback: assume results is already the width-specific dict
+                width_results = results
             
             # Write width results
             width_key = f"{width}"
@@ -363,7 +382,7 @@ class ProductionCampaignRunner:
             agg_group = f['aggregated'].create_group(width_key)
             
             # Store results
-            for key, value in results.items():
+            for key, value in width_results.items():
                 if isinstance(value, (int, float, bool, str)):
                     agg_group.attrs[key] = value
                 elif isinstance(value, (np.integer, np.floating)):

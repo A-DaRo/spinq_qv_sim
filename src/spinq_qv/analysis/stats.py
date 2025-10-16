@@ -18,14 +18,14 @@ def aggregate_hops(hops: np.ndarray) -> Dict[str, float]:
         hops: Array of HOP values from multiple circuits
     
     Returns:
-        Dictionary with mean, std, median, min, max
+        Dictionary with mean_hop, std_hop, median, min, max
     """
     return {
-        "mean": float(np.mean(hops)),
-        "std": float(np.std(hops, ddof=1)) if len(hops) > 1 else 0.0,
-        "median": float(np.median(hops)),
-        "min": float(np.min(hops)),
-        "max": float(np.max(hops)),
+        "mean_hop": float(np.mean(hops)),
+        "std_hop": float(np.std(hops, ddof=1)) if len(hops) > 1 else 0.0,
+        "median_hop": float(np.median(hops)),
+        "min_hop": float(np.min(hops)),
+        "max_hop": float(np.max(hops)),
         "n_circuits": len(hops),
     }
 

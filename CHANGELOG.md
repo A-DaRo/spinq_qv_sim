@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `CampaignState`: JSON-based checkpoint/resume state management
   - `ProductionCampaignRunner`: Multi-width campaigns with automatic retry logic
   - CLI flags: `--resume`, `--campaign-id`, `--max-retries`, `--mode campaign`
+  - Automatic `start_time` initialization for metadata tracking
+  - Proper aggregated results extraction from multi-width runs
 - `examples/configs/production.yaml`: Full production config (m=2-12, 100 circuits, 5000 shots)
 
 **Report Generation:**
@@ -47,6 +49,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - HDF5 compression level 4 (gzip) for all datasets
 - Aggregated-only storage mode for large campaigns
 - Metadata tracking: git hash, package versions, timestamps
+
+### Fixed - Iteration 10
+
+**Campaign Runner:**
+- Fixed `start_time` initialization: now set at campaign start (in `run()` method) and before first HDF5 write
+- Fixed aggregated results extraction: properly handle dict structure from `run_experiment` (width as key)
+- Fixed circular import between `campaign.py` and `run_qv.py` using lazy import
+
+**Statistics:**
+- Renamed `aggregate_hops` output keys for consistency: `mean`→`mean_hop`, `std`→`std_hop`, `median`→`median_hop`
+- This ensures all HOP-related metrics follow the same naming convention
+
+**Test Results:**
+- All reproducibility tests now passing (6/6)
+- Total test suite: **167 passed, 1 skipped, 0 failed**
 
 ### Added - Iteration 9 (Parallelization & Performance)
 
