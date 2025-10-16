@@ -1,0 +1,38 @@
+# Production configuration for full Quantum Volume campaign
+# Designed for comprehensive baseline characterization across m=2 to m=12
+
+device:
+  # Gate fidelities from Si/SiGe experimental data
+  F1: 0.99926          # Single-qubit gate fidelity
+  F2: 0.998            # Two-qubit gate fidelity
+  
+  # Coherence times
+  T1: 1.0              # Amplitude damping time (1 second)
+  T2: 99.0e-6          # Hahn echo T2 (99 µs)
+  T2_star: 20.0e-6     # Ramsey dephasing T2* (20 µs)
+  
+  # Gate durations
+  t_single_gate: 60.0e-9   # Single-qubit gate (60 ns)
+  t_two_gate: 40.0e-9      # Two-qubit CZ gate (40 ns)
+  
+  # SPAM parameters
+  F_readout: 0.9997    # Readout fidelity
+  F_init: 0.994        # Initialization fidelity
+  t_readout: 10.0e-6   # Readout time (10 µs)
+
+simulation:
+  backend: "statevector"    # Use statevector for production (fastest for m≤14)
+  n_circuits: 100           # IBM standard: 100 circuits per width
+  n_shots: 5000             # High statistics for tight CIs
+  widths: [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]  # Full range up to QV=4096
+  random_seed: 42           # Reproducibility
+
+metadata:
+  experiment_name: "production_qv_campaign"
+  description: "Full production Quantum Volume campaign for Si/SiGe baseline characterization"
+  notes: |
+    Production configuration with:
+    - 100 circuits per width (IBM standard)
+    - 5000 shots per circuit (high precision)
+    - Widths 2-12 (QV from 4 to 4096)
+    - Estimated runtime: ~6-12 hours on 8-core CPU with parallelization

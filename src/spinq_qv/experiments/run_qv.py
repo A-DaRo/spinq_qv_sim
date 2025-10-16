@@ -34,6 +34,7 @@ from spinq_qv.analysis.plots import save_all_plots, save_all_sensitivity_plots
 from spinq_qv.io.storage import QVResultsWriter
 from spinq_qv.io.formats import int_to_bitstring
 from spinq_qv.experiments.sensitivity import SensitivityRunner, create_default_param_ranges
+from spinq_qv.experiments.campaign import ProductionCampaignRunner
 
 logger = logging.getLogger(__name__)
 
@@ -61,10 +62,10 @@ def parse_args() -> argparse.Namespace:
     
     parser.add_argument(
         "--mode",
-        choices=["qv", "ablation", "sensitivity-1d", "sensitivity-2d"],
+        choices=["qv", "campaign", "ablation", "sensitivity-1d", "sensitivity-2d"],
         default="qv",
-        help="Experiment mode: qv (standard QV), ablation (error budget), "
-             "sensitivity-1d (1D parameter sweep), sensitivity-2d (2D grid)",
+        help="Experiment mode: qv (standard QV), campaign (production multi-width with resume), "
+             "ablation (error budget), sensitivity-1d (1D parameter sweep), sensitivity-2d (2D grid)",
     )
     
     # Sensitivity-specific options
@@ -153,6 +154,26 @@ def parse_args() -> argparse.Namespace:
         "--profile",
         action="store_true",
         help="Enable performance profiling and save metrics",
+    )
+    
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="Resume previous campaign (campaign mode only)",
+    )
+    
+    parser.add_argument(
+        "--campaign-id",
+        type=str,
+        default=None,
+        help="Campaign ID for resume or to specify custom ID",
+    )
+    
+    parser.add_argument(
+        "--max-retries",
+        type=int,
+        default=2,
+        help="Maximum retry attempts for failed widths in campaign mode",
     )
     
     return parser.parse_args()
@@ -762,6 +783,18 @@ def main() -> int:
                 enable_profiling=args.profile,
             )
         
+        elif args.mode == "campaign":
+            # Production campaign with resume capability
+            run_production_campaign(
+                config, args.output, seed,
+                resume=args.resume,
+                campaign_id=args.campaign_id,
+                parallel=args.parallel,
+                n_workers=args.workers,
+                enable_profiling=args.profile,
+                max_retries=args.max_retries,
+            )
+        
         elif args.mode == "ablation":
             # Ablation study for error budget
             run_ablation_study(config, args.output, seed, args.checkpoint_freq)
@@ -784,6 +817,81 @@ def main() -> int:
     except Exception as e:
         logger.error(f"Experiment failed: {e}", exc_info=True)
         return 1
+
+
+def run_ablation_study(config: Config, output_dir: Path, seed: int, checkpoint_freq: int) -> None:
+    """
+    Run ablation study to compute error budget.
+    
+    Args:
+        config: Configuration object
+        output_dir: Output directory
+        seed: Random seed
+        checkpoint_freq: Checkpoint frequency
+    """
+    logger.info("Running ablation study...")
+    
+    from spinq_qv.analysis.ablation import generate_ablation_sweep, compute_error_budget
+    
+    runner = SensitivityRunner(config, output_dir / "ablation", checkpoint_freq)
+    results = runner.run_ablation_sweep(base_seed=seed)
+    
+    # Compute and export error budget
+    runner.compute_and_save_error_budget()
+    
+    # Generate plots
+    logger.info("Generating ablation plots...")
+    plots_dir = output_dir / "ablation" / "plots"
+    plots_dir.mkdir(exist_ok=True, parents=True)
+    
+    # Import and use plot functions as needed
+    logger.info(f"Ablation study complete. Results in {output_dir / 'ablation'}")
+
+
+def run_production_campaign(
+    config: Config,
+    output_dir: Path,
+    seed: int,
+    resume: bool = False,
+    campaign_id: Optional[str] = None,
+    parallel: bool = False,
+    n_workers: int = 4,
+    enable_profiling: bool = False,
+    max_retries: int = 2,
+) -> None:
+    """
+    Run production QV campaign with resume capability.
+    
+    Args:
+        config: Configuration object
+        output_dir: Output directory
+        seed: Random seed
+        resume: Resume previous campaign
+        campaign_id: Campaign identifier
+        parallel: Enable parallel execution
+        n_workers: Number of workers
+        enable_profiling: Enable profiling
+        max_retries: Maximum retry attempts for failed widths
+    """
+    logger.info("Starting production campaign...")
+    
+    # Create campaign runner
+    runner = ProductionCampaignRunner(
+        config=config,
+        output_dir=output_dir,
+        campaign_id=campaign_id,
+        resume=resume,
+    )
+    
+    # Run campaign
+    summary = runner.run(
+        parallel=parallel,
+        n_workers=n_workers,
+        enable_profiling=enable_profiling,
+        max_retries=max_retries,
+    )
+    
+    logger.info(f"Campaign complete: {summary['completed_widths']}/{summary['total_widths']} widths successful")
 
 
 def run_ablation_study(config: Config, output_dir: Path, seed: int, checkpoint_freq: int) -> None:
