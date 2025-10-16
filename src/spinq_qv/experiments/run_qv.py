@@ -10,13 +10,17 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Tuple
 from datetime import datetime
 import logging
 import numpy as np
+from concurrent.futures import ProcessPoolExecutor, as_completed
+import tempfile
+import shutil
 
 from spinq_qv.config import Config
 from spinq_qv.utils import setup_logger, initialize_global_rng, get_global_rng_manager
+from spinq_qv.utils.perf import PerformanceProfiler, PerformanceLogger, estimate_memory_requirements
 from spinq_qv.circuits.generator import generate_qv_circuit, compute_ideal_probabilities
 from spinq_qv.circuits.transpiler import Transpiler, create_linear_topology, create_all_to_all_topology
 from spinq_qv.circuits.scheduling import create_default_scheduler
@@ -132,6 +136,25 @@ def parse_args() -> argparse.Namespace:
         help="Override random seed from config file",
     )
     
+    parser.add_argument(
+        "--parallel",
+        action="store_true",
+        help="Enable parallel circuit simulation using multiprocessing",
+    )
+    
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=4,
+        help="Number of parallel workers (default: 4)",
+    )
+    
+    parser.add_argument(
+        "--profile",
+        action="store_true",
+        help="Enable performance profiling and save metrics",
+    )
+    
     return parser.parse_args()
 
 
@@ -188,7 +211,99 @@ def _compute_tphi(device_config) -> float:
     return 1 / (1 / device_config.T2 - 1 / (2 * device_config.T1))
 
 
-def run_experiment(config: Config, output_dir: Path, seed: int, return_aggregated: bool = False) -> Optional[Dict[int, Dict[str, Any]]]:
+def simulate_single_circuit_worker(args: Tuple) -> Dict[str, Any]:
+    """
+    Worker function for parallel circuit simulation.
+    
+    This function is called by each worker process in parallel mode.
+    Must be picklable (top-level function, no closures).
+    
+    Args:
+        args: Tuple of (config_dict, m, circuit_idx, circuit_seed, noise_model_dict, topology_dict)
+    
+    Returns:
+        Dictionary with circuit results
+    """
+    from spinq_qv.config import Config
+    from spinq_qv.circuits.generator import generate_qv_circuit, compute_ideal_probabilities
+    from spinq_qv.circuits.transpiler import Transpiler, DeviceTopology
+    from spinq_qv.circuits.scheduling import create_default_scheduler
+    from spinq_qv.analysis.hop import compute_hop_from_result
+    from spinq_qv.utils.perf import PerformanceProfiler
+    
+    # Unpack arguments
+    config_dict, m, circuit_idx, circuit_seed, noise_model_dict, topology_dict = args
+    
+    # Reconstruct objects
+    config = Config(**config_dict)
+    
+    # Reconstruct topology manually since we can't pass topology_type
+    topology = DeviceTopology.__new__(DeviceTopology)
+    topology.n_qubits = topology_dict['n_qubits']
+    topology.edges = set(tuple(edge) for edge in topology_dict['connectivity'])
+    topology.topology_type = "custom"
+    
+    transpiler = Transpiler(topology)
+    
+    # Start profiling
+    with PerformanceProfiler(f"circuit_m{m}_idx{circuit_idx}") as prof:
+        # Generate QV circuit
+        circuit = generate_qv_circuit(m, circuit_seed)
+        
+        # Transpile
+        transpiled_circuit = transpiler.transpile(circuit)
+        
+        # Schedule
+        scheduler = create_default_scheduler(config.device.model_dump())
+        scheduled_circuit = scheduler.schedule(transpiled_circuit)
+        
+        # Compute ideal probabilities
+        ideal_probs = compute_ideal_probabilities(circuit)
+        
+        # Simulate
+        backend = create_backend(
+            config.simulation.backend,
+            m,
+            circuit_seed + 1000,
+        )
+        
+        measured_counts = simulate_circuit(
+            backend,
+            transpiled_circuit,
+            config.simulation.n_shots,
+            noise_model_dict,
+            m,
+        )
+        
+        # Compute HOP
+        hop, heavy_count, total_shots = compute_hop_from_result(
+            measured_counts,
+            ideal_probs,
+            threshold_type='median',
+        )
+    
+    return {
+        'circuit_idx': circuit_idx,
+        'circuit_seed': circuit_seed,
+        'circuit_spec': circuit,
+        'ideal_probs': ideal_probs,
+        'measured_counts': measured_counts,
+        'hop': hop,
+        'heavy_count': heavy_count,
+        'total_shots': total_shots,
+        'perf_metrics': prof.metrics.to_dict() if prof.metrics else None,
+    }
+
+
+def run_experiment(
+    config: Config,
+    output_dir: Path,
+    seed: int,
+    return_aggregated: bool = False,
+    parallel: bool = False,
+    n_workers: int = 4,
+    enable_profiling: bool = False,
+) -> Optional[Dict[int, Dict[str, Any]]]:
     """
     Execute full QV experiment pipeline.
     
@@ -207,6 +322,9 @@ def run_experiment(config: Config, output_dir: Path, seed: int, return_aggregate
         output_dir: Output directory
         seed: Random seed
         return_aggregated: If True, return aggregated results dict instead of None
+        parallel: Enable parallel circuit simulation
+        n_workers: Number of parallel workers
+        enable_profiling: Enable performance profiling
     
     Returns:
         None (default) or aggregated results dict if return_aggregated=True
@@ -267,86 +385,184 @@ def run_experiment(config: Config, output_dir: Path, seed: int, return_aggregate
         # Storage for all results
         all_results = []
         
+        # Initialize performance logger if needed
+        perf_logger = PerformanceLogger(output_dir / "performance.json") if enable_profiling else None
+        
+        # Prepare topology dict for workers
+        topology_dict = {
+            'n_qubits': topology.n_qubits,
+            'connectivity': list(topology.edges),  # Convert set to list for JSON serialization
+        }
+        
         # Loop over circuit widths
         for m in config.simulation.widths:
             logger.info("=" * 70)
             logger.info(f"Processing width m={m}")
             logger.info("=" * 70)
             
+            # Estimate memory requirements
+            if enable_profiling:
+                mem_est = estimate_memory_requirements(m, config.simulation.backend)
+                logger.info(f"  Estimated memory: {mem_est['estimated_total_mb']:.1f} MB per circuit")
+            
             width_results = []
             
-            # Generate and simulate circuits
+            # Generate seeds for all circuits in this width
+            circuit_seeds = []
             for circuit_idx in range(config.simulation.n_circuits):
-                # Generate unique seed for this circuit
                 circuit_rng = rng_manager.get_rng(f"circuit_m{m}_idx{circuit_idx}")
                 circuit_seed = int(circuit_rng.integers(0, 2**31 - 1))
+                circuit_seeds.append((circuit_idx, circuit_seed))
+            
+            if parallel:
+                # Parallel execution
+                logger.info(f"  Running {config.simulation.n_circuits} circuits in parallel with {n_workers} workers...")
                 
-                logger.info(f"  Circuit {circuit_idx + 1}/{config.simulation.n_circuits} "
-                           f"(seed={circuit_seed})")
+                # Prepare worker arguments
+                worker_args = [
+                    (
+                        config.model_dump(),
+                        m,
+                        circuit_idx,
+                        circuit_seed,
+                        noise_model,
+                        topology_dict,
+                    )
+                    for circuit_idx, circuit_seed in circuit_seeds
+                ]
                 
-                # Generate QV circuit
-                circuit = generate_qv_circuit(m, circuit_seed)
-                
-                # Transpile (maps logical → physical qubits, adds SWAPs if needed)
-                transpiled_circuit = transpiler.transpile(circuit)
-                
-                # Schedule (organize into time slices)
-                scheduled_circuit = scheduler.schedule(transpiled_circuit)
-                
-                # Compute ideal probabilities
-                ideal_probs = compute_ideal_probabilities(circuit)
-                
-                # Simulate with noise
-                backend = create_backend(
-                    config.simulation.backend,
-                    m,
-                    circuit_seed + 1000,  # Different seed for measurement
-                )
-                
-                # Apply circuit gates
-                measured_counts = simulate_circuit(
-                    backend,
-                    transpiled_circuit,
-                    config.simulation.n_shots,
-                    noise_model,
-                    m,
-                )
-                
-                # Compute HOP
-                hop, heavy_count, total_shots = compute_hop_from_result(
-                    measured_counts,
-                    ideal_probs,
-                    threshold_type='median',
-                )
-                
-                logger.info(f"    HOP = {hop:.4f} ({heavy_count}/{total_shots} in heavy outputs)")
-                
-                # Save circuit result
-                circuit_id = f"circuit_{circuit_idx:04d}"
-                writer.write_circuit_result(
-                    width=m,
-                    circuit_id=circuit_id,
-                    circuit_spec=circuit,
-                    ideal_probs=ideal_probs,
-                    measured_counts=measured_counts,
-                    hop=hop,
-                    metadata={
-                        'circuit_seed': circuit_seed,
-                        'num_gates': circuit.num_gates(),
-                        'num_swaps': transpiled_circuit.metadata.get('num_swaps', 0),
+                # Execute in parallel
+                with ProcessPoolExecutor(max_workers=n_workers) as executor:
+                    # Submit all jobs
+                    futures = {
+                        executor.submit(simulate_single_circuit_worker, args): args[2]
+                        for args in worker_args
                     }
-                )
+                    
+                    # Collect results as they complete
+                    for future in as_completed(futures):
+                        circuit_idx = futures[future]
+                        try:
+                            result = future.result()
+                            
+                            logger.info(f"    Circuit {result['circuit_idx'] + 1}/{config.simulation.n_circuits} "
+                                      f"complete: HOP = {result['hop']:.4f}")
+                            
+                            # Save circuit result
+                            circuit_id = f"circuit_{result['circuit_idx']:04d}"
+                            writer.write_circuit_result(
+                                width=m,
+                                circuit_id=circuit_id,
+                                circuit_spec=result['circuit_spec'],
+                                ideal_probs=result['ideal_probs'],
+                                measured_counts=result['measured_counts'],
+                                hop=result['hop'],
+                                metadata={
+                                    'circuit_seed': result['circuit_seed'],
+                                }
+                            )
+                            
+                            # Store for aggregation
+                            width_results.append({
+                                'width': m,
+                                'hop': result['hop'],
+                                'circuit_id': circuit_id,
+                            })
+                            all_results.append({
+                                'width': m,
+                                'hop': result['hop'],
+                            })
+                            
+                            # Log performance metrics
+                            if enable_profiling and result['perf_metrics']:
+                                from spinq_qv.utils.perf import PerformanceMetrics
+                                metrics = PerformanceMetrics(**result['perf_metrics'])
+                                perf_logger.add_metrics(metrics)
+                        
+                        except Exception as e:
+                            logger.error(f"    Circuit {circuit_idx} failed: {e}")
+                            raise
+            
+            else:
+                # Serial execution
+                logger.info(f"  Running {config.simulation.n_circuits} circuits serially...")
                 
-                # Store for aggregation
-                width_results.append({
-                    'width': m,
-                    'hop': hop,
-                    'circuit_id': circuit_id,
-                })
-                all_results.append({
-                    'width': m,
-                    'hop': hop,
-                })
+                for circuit_idx, circuit_seed in circuit_seeds:
+                    logger.info(f"  Circuit {circuit_idx + 1}/{config.simulation.n_circuits} "
+                               f"(seed={circuit_seed})")
+                    
+                    # Profile if enabled
+                    if enable_profiling:
+                        prof = PerformanceProfiler(f"circuit_m{m}_idx{circuit_idx}")
+                        prof.__enter__()
+                    
+                    # Generate QV circuit
+                    circuit = generate_qv_circuit(m, circuit_seed)
+                    
+                    # Transpile
+                    transpiled_circuit = transpiler.transpile(circuit)
+                    
+                    # Schedule
+                    scheduled_circuit = scheduler.schedule(transpiled_circuit)
+                    
+                    # Compute ideal probabilities
+                    ideal_probs = compute_ideal_probabilities(circuit)
+                    
+                    # Simulate with noise
+                    backend = create_backend(
+                        config.simulation.backend,
+                        m,
+                        circuit_seed + 1000,
+                    )
+                    
+                    # Apply circuit gates
+                    measured_counts = simulate_circuit(
+                        backend,
+                        transpiled_circuit,
+                        config.simulation.n_shots,
+                        noise_model,
+                        m,
+                    )
+                    
+                    # Compute HOP
+                    hop, heavy_count, total_shots = compute_hop_from_result(
+                        measured_counts,
+                        ideal_probs,
+                        threshold_type='median',
+                    )
+                    
+                    if enable_profiling:
+                        prof.__exit__(None, None, None)
+                        perf_logger.add_metrics(prof.metrics)
+                    
+                    logger.info(f"    HOP = {hop:.4f} ({heavy_count}/{total_shots} in heavy outputs)")
+                    
+                    # Save circuit result
+                    circuit_id = f"circuit_{circuit_idx:04d}"
+                    writer.write_circuit_result(
+                        width=m,
+                        circuit_id=circuit_id,
+                        circuit_spec=circuit,
+                        ideal_probs=ideal_probs,
+                        measured_counts=measured_counts,
+                        hop=hop,
+                        metadata={
+                            'circuit_seed': circuit_seed,
+                            'num_gates': circuit.num_gates(),
+                            'num_swaps': transpiled_circuit.metadata.get('num_swaps', 0),
+                        }
+                    )
+                    
+                    # Store for aggregation
+                    width_results.append({
+                        'width': m,
+                        'hop': hop,
+                        'circuit_id': circuit_id,
+                    })
+                    all_results.append({
+                        'width': m,
+                        'hop': hop,
+                    })
             
             # Aggregate results for this width
             logger.info(f"  Aggregating results for m={m}...")
@@ -367,6 +583,11 @@ def run_experiment(config: Config, output_dir: Path, seed: int, return_aggregate
         logger.info("=" * 70)
         logger.info("All widths completed")
         logger.info("=" * 70)
+        
+        # Save performance metrics
+        if enable_profiling and perf_logger:
+            perf_logger.save()
+            perf_logger.print_summary()
     
     # Generate plots
     logger.info("Generating plots...")
@@ -534,7 +755,12 @@ def main() -> int:
         # Route to appropriate mode
         if args.mode == "qv":
             # Standard QV experiment
-            run_experiment(config, args.output, seed)
+            run_experiment(
+                config, args.output, seed,
+                parallel=args.parallel,
+                n_workers=args.workers,
+                enable_profiling=args.profile,
+            )
         
         elif args.mode == "ablation":
             # Ablation study for error budget

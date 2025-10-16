@@ -385,7 +385,7 @@ I do **not** include time estimates — instead I give *scope and success criter
 
 ---
 
-# Iteration 11 — Final full campaigns, documentation, and release
+# Iteration 10 — Final full campaigns, documentation, and release
 
 **Goal:** Use the pipeline to run production-quality simulations, produce a final report, archive data, and tag a release.
 
