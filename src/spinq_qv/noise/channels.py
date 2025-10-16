@@ -105,6 +105,57 @@ def depolarizing_kraus(p: float) -> List[np.ndarray]:
     return [K0, K1, K2, K3]
 
 
+def depolarizing_kraus_2q(p: float) -> List[np.ndarray]:
+    """
+    Two-qubit depolarizing channel as Kraus operators.
+    
+    For two qubits, the depolarizing channel is:
+      E(ρ) = (1 - p) ρ + p * I/4
+    
+    This can be represented by 16 Kraus operators (tensor products of Paulis):
+      K_ij = sqrt(w_ij) * (P_i ⊗ P_j)
+    where P_i ∈ {I, X, Y, Z} and weights are chosen so sum of K^†K = I.
+    
+    For uniform depolarizing:
+      K_00 = sqrt(1 - 15p/16) * (I ⊗ I)
+      K_ij = sqrt(p/16) * (P_i ⊗ P_j) for (i,j) ≠ (0,0)
+    
+    Args:
+        p: depolarizing probability in [0, 1]
+    Returns:
+        List of 16 Kraus operators (4x4 matrices)
+    """
+    if p < 0 or p > 1:
+        raise ValueError("p must be in [0, 1]")
+    
+    # Pauli matrices
+    I = np.array([[1.0, 0.0], [0.0, 1.0]], dtype=np.complex128)
+    X = np.array([[0.0, 1.0], [1.0, 0.0]], dtype=np.complex128)
+    Y = np.array([[0.0, -1j], [1j, 0.0]], dtype=np.complex128)
+    Z = np.array([[1.0, 0.0], [0.0, -1.0]], dtype=np.complex128)
+    
+    paulis = [I, X, Y, Z]
+    
+    # Coefficients
+    k0_coeff = np.sqrt(max(0.0, 1.0 - 15.0 * p / 16.0))
+    k_other = np.sqrt(max(0.0, p / 16.0))
+    
+    kraus_ops = []
+    for i, P1 in enumerate(paulis):
+        for j, P2 in enumerate(paulis):
+            # Tensor product P1 ⊗ P2
+            tensor_prod = np.kron(P1, P2)
+            
+            if i == 0 and j == 0:
+                # Identity term
+                kraus_ops.append(k0_coeff * tensor_prod)
+            else:
+                # Error terms
+                kraus_ops.append(k_other * tensor_prod)
+    
+    return kraus_ops
+
+
 def is_trace_preserving(kraus_ops: List[np.ndarray], atol: float = 1e-12) -> bool:
     """
     Check that sum_k K_k^† K_k == I within tolerance.

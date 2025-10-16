@@ -235,6 +235,108 @@ class StatevectorBackend(SimulatorBackend):
                     f"Gate type '{gate_type}' not yet implemented"
                 )
     
+    def apply_pauli_error(self, p: float, targets: list[int]) -> None:
+        """
+        Apply depolarizing error via stochastic Pauli twirling.
+        
+        With probability p, applies a random Pauli (X, Y, or Z) to each target qubit.
+        This is a stochastic approximation of the depolarizing channel.
+        
+        Args:
+            p: Depolarizing probability (total error rate)
+            targets: List of qubit indices
+        """
+        if p <= 0:
+            return  # No error to apply
+        
+        # Pauli matrices
+        I = np.array([[1, 0], [0, 1]], dtype=np.complex128)
+        X = np.array([[0, 1], [1, 0]], dtype=np.complex128)
+        Y = np.array([[0, -1j], [1j, 0]], dtype=np.complex128)
+        Z = np.array([[1, 0], [0, -1]], dtype=np.complex128)
+        
+        paulis = [I, X, Y, Z]
+        
+        # For each target qubit, decide whether to apply error
+        for qubit in targets:
+            if self.rng.random() < p:
+                # Apply random Pauli (excluding I for efficiency, scale p accordingly)
+                # With probability p, choose uniformly from {X, Y, Z}
+                pauli_idx = self.rng.integers(1, 4)  # 1, 2, or 3
+                pauli = paulis[pauli_idx]
+                self.apply_unitary(pauli, [qubit])
+    
+    def apply_kraus_stochastic(
+        self, 
+        kraus_ops: list[np.ndarray], 
+        targets: list[int]
+    ) -> None:
+        """
+        Apply Kraus channel via stochastic unraveling (quantum jump method).
+        
+        This is the Monte Carlo wavefunction (MCWF) approach:
+        1. Compute probabilities p_k = ⟨ψ|K_k^† K_k|ψ⟩ for each Kraus operator
+        2. Sample one Kraus operator k according to probabilities
+        3. Apply K_k|ψ⟩ and renormalize
+        
+        Args:
+            kraus_ops: List of Kraus operators (each 2^k × 2^k for k qubits)
+            targets: List of k qubit indices
+        """
+        # Compute probabilities for each Kraus operator
+        # p_k = ⟨ψ|K_k^† K_k|ψ⟩
+        probs = []
+        for K in kraus_ops:
+            # Apply K_k^† K_k to get effective measurement operator
+            state_copy = self.state.copy()
+            
+            # Reshape and apply K to copy
+            k = len(targets)
+            K_arr = np.asarray(K, dtype=np.complex128)
+            state_tensor = state_copy.reshape([2] * self.n_qubits)
+            K_tensor = K_arr.reshape([2] * (2 * k))
+            
+            # Build einsum for K application (same as apply_unitary)
+            in_indices = [chr(ord('a') + i) for i in range(self.n_qubits)]
+            out_indices = in_indices.copy()
+            new_idx_start = ord('a') + self.n_qubits
+            K_out = []
+            K_in = []
+            
+            for i, t in enumerate(targets):
+                new_label = chr(new_idx_start + i)
+                K_out.append(new_label)
+                K_in.append(in_indices[t])
+                out_indices[t] = new_label
+            
+            state_idx = ''.join(in_indices)
+            K_idx = ''.join(K_out) + ''.join(K_in)
+            result_idx = ''.join(out_indices)
+            einsum_expr = f"{state_idx},{K_idx}->{result_idx}"
+            
+            result_tensor = np.einsum(einsum_expr, state_tensor, K_tensor)
+            result_state = result_tensor.reshape(2 ** self.n_qubits)
+            
+            # Probability is norm squared of result
+            prob = float(np.abs(np.vdot(result_state, result_state)))
+            probs.append(prob)
+        
+        # Normalize probabilities (should sum to ~1 for trace-preserving channels)
+        probs = np.array(probs)
+        probs /= probs.sum()
+        
+        # Sample which Kraus operator to apply
+        k_idx = self.rng.choice(len(kraus_ops), p=probs)
+        
+        # Apply the selected Kraus operator
+        K_selected = kraus_ops[k_idx]
+        self.apply_unitary(K_selected, targets)
+        
+        # Renormalize state
+        norm = np.linalg.norm(self.state)
+        if norm > 1e-15:
+            self.state /= norm
+    
     @staticmethod
     def _u3_matrix(theta: float, phi: float, lam: float) -> np.ndarray:
         """

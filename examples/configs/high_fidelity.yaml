@@ -1,0 +1,21 @@
+device:
+  F1: 0.9999
+  F2: 0.9995
+  T1: 2.0
+  T2: 0.0002
+  T2_star: 0.00015
+  single_qubit_gate_time: 40.0e-9
+  two_qubit_gate_time: 150.0e-9
+  readout_fidelity: 0.995
+  preparation_fidelity: 0.998
+
+simulation:
+  backend: statevector
+  n_circuits: 100
+  n_shots: 1000
+  widths: [2, 3, 4, 5]
+  random_seed: 42
+
+metadata:
+  description: "High-fidelity device parameters for testing"
+  author: "spinq_qv_sim"
