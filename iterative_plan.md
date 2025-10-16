@@ -453,15 +453,3 @@ Use these small numbers during dev so CI and developers can run quickly:
 * `n_circuits`: 5–20 (dev), 50–200 (production).
 * `n_shots`: 200–1000 (dev), 1000–5000 (production).
 * Backend: `statevector` (dev); `density` only for `m ≤ 12` in CI; `mcwf` for larger `m`.
-
----
-
-# Final notes and handoff
-
-* This plan is intentionally modular: you can stop after any iteration and have a working artifact (e.g., after Iteration 7 you already have a credible CPU-only QV estimator).
-* If you’d like, I can now produce either:
-
-  1. A prioritized task list (Jira-style) derived from these iterations, or
-  2. The exact function/class signatures and minimal docstrings for the key classes (`NoiseModelBuilder`, `Backend`, `Transpiler`, `CircuitSpec`) so a developer can start coding immediately.
-
-Which of those do you want next?
