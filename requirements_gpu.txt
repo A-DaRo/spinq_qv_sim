@@ -1,0 +1,18 @@
+# Base CPU requirements
+-r requirements_cpu.txt
+
+# GPU-acceleration packages (install versions equal or higher than shown)
+# NOTE: GPU wheels are CUDA-version dependent. See install notes below.
+cupy>=13.0.0
+cuquantum>=23.08.0
+
+# JAX: high-performance array / autodiff on GPU
+# jax requires a jaxlib wheel that matches your CUDA/cuDNN combination.
+# Install jax (>=) and then the matching jaxlib wheel as described below.
+jax>=0.4.14
+
+# Optional high-performance simulators (install if available for your platform)
+# qsim / qsimcirq wheels are platform-dependent and may require extra steps
+# qsimcirq>=0.13.0    # uncomment if you have qsimcirq wheels compatible with your system
+
+# NOTE: if you need GPU PyCUDA or other low-level packages, add them as required.
