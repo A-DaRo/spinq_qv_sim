@@ -1,0 +1,33 @@
+# Baseline configuration for Quantum Volume simulations
+# Device parameters from Si/SiGe experimental data
+
+device:
+  # Gate fidelities (average gate fidelity)
+  F1: 0.99926          # Single-qubit gate fidelity (99.926%)
+  F2: 0.998            # Two-qubit gate fidelity (99.8%)
+  
+  # Coherence times (seconds)
+  T1: 1.0              # Amplitude damping time (1 second)
+  T2: 99.0e-6          # Hahn echo T2 (99 µs)
+  T2_star: 20.0e-6     # Ramsey dephasing T2* (20 µs)
+  
+  # Gate durations (seconds)
+  t_single_gate: 60.0e-9   # Single-qubit Xπ/2 gate (60 ns)
+  t_two_gate: 40.0e-9      # Two-qubit CZ gate (40 ns)
+  
+  # SPAM parameters
+  F_readout: 0.9997    # Readout fidelity (99.97%)
+  F_init: 0.994        # Initialization fidelity (99.4%)
+  t_readout: 10.0e-6   # Readout time (10 µs)
+
+simulation:
+  backend: "statevector"    # Options: statevector, density_matrix, mcwf, tensornet
+  n_circuits: 50            # Number of random circuits per width (IBM uses 100+)
+  n_shots: 1000             # Shots per circuit (1000-5000 recommended)
+  widths: [2, 3, 4, 5, 6]   # QV circuit widths to test
+  random_seed: 42           # For reproducibility (null = random)
+
+metadata:
+  experiment_name: "baseline_qv"
+  description: "Baseline Quantum Volume simulation with Si/SiGe donor spin parameters"
+  notes: "Using experimental values: F1=99.926%, F2=99.8%, T1=1s, T2=99µs"
