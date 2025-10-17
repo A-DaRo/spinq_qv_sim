@@ -1,0 +1,34 @@
+device:
+  F1: 0.99926
+  F2: 0.998
+  T1: 1.0
+  T2: 9.9e-05
+  T2_star: 2.0e-05
+  t_single_gate: 6.0e-08
+  t_two_gate: 4.0e-08
+  F_readout: 0.9997
+  F_init: 0.994
+  t_readout: 1.0e-05
+simulation:
+  backend: statevector
+  n_circuits: 5
+  n_shots: 100
+  widths:
+  - 2
+  - 3
+  - 4
+  random_seed: 42
+metadata:
+  experiment_name: production_qv_campaign
+  description: Full production Quantum Volume campaign for Si/SiGe baseline characterization
+  notes: 'Production configuration with:
+
+    - 100 circuits per width (IBM standard)
+
+    - 5000 shots per circuit (high precision)
+
+    - Widths 2-12 (QV from 4 to 4096)
+
+    - Estimated runtime: ~6-12 hours on 8-core CPU with parallelization
+
+    '

@@ -5,7 +5,11 @@ __pycache__/
 
 
 examples/sample_outputs/
-
+examples/demo_campaign_output/
+test_campaign_output/
+test_campaign_plots/
+campaigns/
+notebooks/results/
 # C extensions
 *.so
 
