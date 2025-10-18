@@ -337,6 +337,19 @@ class StatevectorBackend(SimulatorBackend):
         if norm > 1e-15:
             self.state /= norm
     
+    def apply_kraus(self, kraus_ops: list[np.ndarray], targets: list[int]) -> None:
+        """
+        Apply Kraus channel (alias for apply_kraus_stochastic).
+        
+        For statevector simulation, Kraus channels are applied via Monte Carlo
+        wavefunction method (stochastic unraveling).
+        
+        Args:
+            kraus_ops: List of Kraus operators
+            targets: List of target qubit indices
+        """
+        self.apply_kraus_stochastic(kraus_ops, targets)
+    
     @staticmethod
     def _u3_matrix(theta: float, phi: float, lam: float) -> np.ndarray:
         """

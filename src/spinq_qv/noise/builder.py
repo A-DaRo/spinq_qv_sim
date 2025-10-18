@@ -124,7 +124,8 @@ class NoiseModelBuilder:
         # For two qubits we can combine by assuming independent per-qubit channels
         amp_kraus_q = channels.amplitude_damping_kraus(p_amp_q)
         phase_kraus_q = channels.phase_damping_kraus(p_phi_q)
-        dep_kraus = channels.depolarizing_kraus(p_dep)
+        # Use two-qubit depolarizing channel (16 Kraus operators of size 4×4)
+        dep_kraus_2q = channels.depolarizing_kraus_2q(p_dep)
 
         # residual ZZ coherent coupling
         zz_phi = self.params.get('residual_zz_phase', 0.0)
@@ -135,7 +136,7 @@ class NoiseModelBuilder:
             'p_dep': p_dep,
             'amp_kraus_per_qubit': amp_kraus_q,
             'phase_kraus_per_qubit': phase_kraus_q,
-            'dep_kraus': dep_kraus,
+            'dep_kraus': dep_kraus_2q,  # 4×4 two-qubit depolarizing
             'coherent': {
                 'zz_phi': zz_phi,
             }

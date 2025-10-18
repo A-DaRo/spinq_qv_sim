@@ -11,10 +11,37 @@ from typing import Dict, Any, Optional, Callable
 import time
 import json
 from datetime import datetime
+import numpy as np
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from spinq_qv.config.schemas import Config
+
+
+def convert_to_json_serializable(obj):
+    """
+    Recursively convert NumPy types to Python native types for JSON serialization.
+    
+    Args:
+        obj: Object to convert
+        
+    Returns:
+        JSON-serializable version of obj
+    """
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    elif isinstance(obj, (np.integer, np.int64, np.int32)):
+        return int(obj)
+    elif isinstance(obj, (np.floating, np.float64, np.float32)):
+        return float(obj)
+    elif isinstance(obj, (np.bool_, bool)):
+        return bool(obj)
+    elif isinstance(obj, dict):
+        return {key: convert_to_json_serializable(value) for key, value in obj.items()}
+    elif isinstance(obj, (list, tuple)):
+        return [convert_to_json_serializable(item) for item in obj]
+    else:
+        return obj
 
 
 class CampaignExecutor:
@@ -138,8 +165,11 @@ class CampaignExecutor:
         """Save results for a single configuration."""
         result_file = self.results_dir / f"{config_name}_results.json"
         
+        # Convert to JSON-serializable format
+        serializable_results = convert_to_json_serializable(results)
+        
         with open(result_file, 'w') as f:
-            json.dump(results, f, indent=2)
+            json.dump(serializable_results, f, indent=2)
     
     def _save_campaign_summary(self) -> None:
         """Save campaign summary with all results."""
@@ -160,8 +190,11 @@ class CampaignExecutor:
             "results": valid_results,
         }
         
+        # Convert to JSON-serializable format
+        serializable_summary = convert_to_json_serializable(summary)
+        
         with open(summary_file, 'w') as f:
-            json.dump(summary, f, indent=2)
+            json.dump(serializable_summary, f, indent=2)
         
         print(f"\n[✓] Campaign summary saved to: {summary_file}")
 

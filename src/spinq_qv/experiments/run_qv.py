@@ -8,7 +8,6 @@ Full pipeline: generate circuits, transpile, schedule, simulate, measure, analyz
 
 import argparse
 import json
-import sys
 from pathlib import Path
 from typing import Optional, Dict, Any, List, Tuple
 from datetime import datetime
@@ -685,8 +684,11 @@ def simulate_circuit(
     # Initialize state to |0...0⟩
     backend.init_state()
     
-    # Apply each gate (simplified - no noise for now in this iteration)
-    # Full noise application will be added in next iteration
+    # Extract noise model components
+    single_qubit_noise = noise_model.get('single_qubit', {})
+    two_qubit_noise = noise_model.get('two_qubit', {})
+    
+    # Apply each gate with noise
     for gate in circuit.gates:
         gate_type = gate["type"]
         qubits = gate["qubits"]
@@ -707,7 +709,18 @@ def simulate_circuit(
                 [np.exp(1j * phi) * sin_half, np.exp(1j * (phi + lam)) * cos_half]
             ], dtype=np.complex128)
             
+            # Apply ideal gate
             backend.apply_unitary(u3_matrix, [qubits[0]])
+            
+            # Apply noise channels in order: amplitude damping, phase damping, depolarizing
+            if 'amp_kraus' in single_qubit_noise:
+                backend.apply_kraus(single_qubit_noise['amp_kraus'], [qubits[0]])
+            
+            if 'phase_kraus' in single_qubit_noise:
+                backend.apply_kraus(single_qubit_noise['phase_kraus'], [qubits[0]])
+            
+            if 'dep_kraus' in single_qubit_noise:
+                backend.apply_kraus(single_qubit_noise['dep_kraus'], [qubits[0]])
         
         elif gate_type == "su4":
             # Two-qubit SU(4) gate
@@ -715,7 +728,21 @@ def simulate_circuit(
             imag_part = np.array(params["unitary_imag"]).reshape(4, 4)
             unitary = (real_part + 1j * imag_part).astype(np.complex128)
             
+            # Apply ideal gate
             backend.apply_unitary(unitary, qubits)
+            
+            # Apply per-qubit decoherence (amplitude + phase damping)
+            if 'amp_kraus_per_qubit' in two_qubit_noise:
+                for q in qubits:
+                    backend.apply_kraus(two_qubit_noise['amp_kraus_per_qubit'], [q])
+            
+            if 'phase_kraus_per_qubit' in two_qubit_noise:
+                for q in qubits:
+                    backend.apply_kraus(two_qubit_noise['phase_kraus_per_qubit'], [q])
+            
+            # Apply two-qubit depolarizing
+            if 'dep_kraus' in two_qubit_noise:
+                backend.apply_kraus(two_qubit_noise['dep_kraus'], qubits)
         
         elif gate_type == "swap":
             # SWAP gate
@@ -726,7 +753,20 @@ def simulate_circuit(
                 [0, 0, 0, 1]
             ], dtype=np.complex128)
             
+            # Apply ideal gate
             backend.apply_unitary(swap_matrix, qubits)
+            
+            # Apply same noise as two-qubit gate
+            if 'amp_kraus_per_qubit' in two_qubit_noise:
+                for q in qubits:
+                    backend.apply_kraus(two_qubit_noise['amp_kraus_per_qubit'], [q])
+            
+            if 'phase_kraus_per_qubit' in two_qubit_noise:
+                for q in qubits:
+                    backend.apply_kraus(two_qubit_noise['phase_kraus_per_qubit'], [q])
+            
+            if 'dep_kraus' in two_qubit_noise:
+                backend.apply_kraus(two_qubit_noise['dep_kraus'], qubits)
     
     # Measure
     counts = backend.measure(shots=n_shots, readout_noise=None)
