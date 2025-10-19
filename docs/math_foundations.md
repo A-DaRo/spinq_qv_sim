@@ -1,6 +1,6 @@
 # Mathematical Foundations of Quantum Volume Simulation
 
-**Author:** spinq_qv_sim Contributors  
+**Author:** Alessandro Da Ros
 **Last Updated:** 2025-01-17  
 **Version:** 1.0
 
