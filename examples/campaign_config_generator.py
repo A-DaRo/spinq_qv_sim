@@ -60,25 +60,41 @@ def generate_parameter_sweep_configs(
     # Generate sweep configs
     for param_name, param_values in sweep_params.items():
         for value in param_values:
+            # Determine baseline depending on parameter
+            if param_name == "meas_error":
+                baseline_value = 0.5 * (
+                    base_config.device.meas_error_1given0 + base_config.device.meas_error_0given1
+                )
+            elif param_name == "state_prep_error":
+                baseline_value = base_config.device.state_prep_error
+            else:
+                baseline_value = getattr(base_config.device, param_name)
+
             # Skip if same as baseline
-            baseline_value = getattr(base_config.device, param_name)
             if np.isclose(value, baseline_value):
                 continue
-            
-            # Create config name
-            config_name = f"{param_name}_{_format_value(value)}"
-            
+
+            # Create config name (format depends on parameter type)
+            config_name = f"{param_name}_{_format_value(value, param_name)}"
+
             # Clone base config
             new_config = copy.deepcopy(base_config)
-            
+
             # Modify parameter (convert to Python float to avoid numpy serialization issues)
-            setattr(new_config.device, param_name, float(value))
-            
+            if param_name == "meas_error":
+                # Apply symmetric measurement errors to both POVM error rates
+                new_config.device.meas_error_1given0 = float(value)
+                new_config.device.meas_error_0given1 = float(value)
+            elif param_name == "state_prep_error":
+                new_config.device.state_prep_error = float(value)
+            else:
+                setattr(new_config.device, param_name, float(value))
+
             # Update metadata
             new_config.metadata["config_name"] = config_name
             new_config.metadata["sweep_param"] = param_name
             new_config.metadata["sweep_value"] = float(value)
-            
+
             campaign_configs[config_name] = new_config
     
     # Save individual config files
@@ -167,20 +183,27 @@ def _get_fidelity_sweep(base_config: Config, n_points: int) -> Dict[str, List[fl
         n_points * 2
     )
     
-    # SPAM parameters
-    F_readout_baseline = base_config.device.F_readout
-    sweep_params["F_readout"] = np.linspace(
-        max(0.990, F_readout_baseline - 0.005),
-        min(0.9999, F_readout_baseline + 0.001),
+    # SPAM parameters (mapped to new parameterization)
+    # Readout fidelity (convert to symmetric measurement error rates)
+    readout_fidelity_baseline = 1.0 - 0.5 * (
+        base_config.device.meas_error_1given0 + base_config.device.meas_error_0given1
+    )
+    F_readout_range = np.linspace(
+        max(0.990, readout_fidelity_baseline - 0.005),
+        min(0.9999, readout_fidelity_baseline + 0.001),
         n_points
     )
-    
-    F_init_baseline = base_config.device.F_init
-    sweep_params["F_init"] = np.linspace(
+    # Convert fidelities → symmetric measurement error probabilities (meas_error)
+    sweep_params["meas_error"] = list((1.0 - F_readout_range) / 2.0)
+
+    # Preparation fidelity (map to state_prep_error)
+    F_init_baseline = 1.0 - base_config.device.state_prep_error
+    F_init_range = np.linspace(
         max(0.980, F_init_baseline - 0.01),
         min(0.999, F_init_baseline + 0.005),
         n_points
     )
+    sweep_params["state_prep_error"] = list(1.0 - F_init_range)
     
     return sweep_params
 
@@ -249,20 +272,34 @@ def _get_timing_sweep(base_config: Config, n_points: int) -> Dict[str, List[floa
     return sweep_params
 
 
-def _format_value(value: float) -> str:
-    """Format parameter value for config name."""
-    if value >= 0.9:
-        # Fidelity values
-        return f"{value:.5f}".replace(".", "p")
-    elif value >= 1e-3:
-        # Times in ms
-        return f"{value*1e3:.2f}ms".replace(".", "p")
-    elif value >= 1e-6:
-        # Times in us
-        return f"{value*1e6:.1f}us".replace(".", "p")
-    else:
-        # Times in ns
+def _format_value(value: float, param_name: str | None = None) -> str:
+    """Format parameter value for config name.
+
+    If param_name is provided, use it to distinguish times from probability-like
+    parameters so names remain readable and unambiguous.
+    """
+    # Time-like parameters: param names prefixed with 't_'
+    if param_name is not None and param_name.startswith("t_"):
+        if value >= 1.0:
+            return f"{value:.3f}s".replace(".", "p")
+        if value >= 1e-3:
+            return f"{value*1e3:.2f}ms".replace(".", "p")
+        if value >= 1e-6:
+            return f"{value*1e6:.1f}us".replace(".", "p")
         return f"{value*1e9:.0f}ns"
+
+    # Probability-like parameters (errors): format as small decimal
+    if param_name is not None and ("error" in param_name or "meas_" in param_name):
+        return f"{value:.6f}".replace(".", "p")
+
+    # Fallback heuristics
+    if value >= 0.9:
+        return f"{value:.5f}".replace(".", "p")
+    if value >= 1e-3:
+        return f"{value*1e3:.2f}ms".replace(".", "p")
+    if value >= 1e-6:
+        return f"{value*1e6:.1f}us".replace(".", "p")
+    return f"{value:.6f}".replace(".", "p")
 
 
 if __name__ == "__main__":

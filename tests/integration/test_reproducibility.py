@@ -33,8 +33,9 @@ def small_config(tmp_path):
             'T2_star': 20e-6,
             't_single_gate': 60e-9,
             't_two_gate': 40e-9,
-            'F_readout': 0.9997,
-            'F_init': 0.994,
+            'state_prep_error': 0.006,
+            'meas_error_1given0': 0.0003,
+            'meas_error_0given1': 0.0003,
             't_readout': 10e-6,
         },
         'simulation': {

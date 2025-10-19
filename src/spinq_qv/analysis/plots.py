@@ -890,7 +890,7 @@ def plot_parameter_correlation_matrix(
     if params_to_analyze is None:
         params_to_analyze = ['F1', 'F2', 'T1', 'T2', 'T2_star', 
                             't_single_gate', 't_two_gate', 
-                            'F_readout', 'F_init']
+                            'state_prep_error', 'meas_error_1given0', 'meas_error_0given1']
     
     # Extract parameter values
     param_matrix = []

@@ -15,10 +15,24 @@ device:
   t_single_gate: 60.0e-9   # Single-qubit Xπ/2 gate (60 ns)
   t_two_gate: 40.0e-9      # Two-qubit CZ gate (40 ns)
   
-  # SPAM parameters
-  F_readout: 0.9997    # Readout fidelity (99.97%)
-  F_init: 0.994        # Initialization fidelity (99.4%)
-  t_readout: 10.0e-6   # Readout time (10 µs)
+  # Coherent error parameters (explicit defaults)
+  single_qubit_overrotation_rad: 0.0   # Over-rotation angle (rad)
+  coherent_axis: 'z'                   # Default coherent-axis for systematic errors
+  residual_zz_phase: 0.0               # Residual ZZ phase (radians)
+
+  # Crosstalk parameters (NEW)
+  zz_crosstalk_strength: 0.0           # Always-on ZZ crosstalk (rad/s)
+  control_crosstalk_fraction: 0.0      # Fractional leakage to spectator qubits
+
+  # SPAM parameters (NEW - replaces legacy F_readout/F_init)
+  state_prep_error: 0.006              # Probability of |1> after reset (1 - F_init)
+  meas_error_1given0: 0.00015          # P(measure 1 | true state is |0>) - false positive
+  meas_error_0given1: 0.00015          # P(measure 0 | true state is |1>) - false negative
+  t_readout: 10.0e-6                   # Readout time (10 µs)
+
+  # Time-dependent / drift defaults (NEW)
+  coherent_drift_std: 0.0              # Stddev of coherent error drift (radians)
+  sigma_drift_fraction: 0.0            # Relative drift in T2* noise magnitude (0-1)
 
 simulation:
   backend: "statevector"    # Options: statevector, density_matrix, mcwf, tensornet

@@ -1,0 +1,63 @@
+# Device parameters from Si/SiGe experimental data
+# Reformatted to [min, max] ranges for parameter campaign sweeps
+# Single values are fixed; null values use baseline config defaults
+
+device:
+  # Gate fidelities (average gate fidelity)
+  # Original sources: [4], [11], [1] - min across all papers: 0.994, max: 0.9996
+  F1: [0.994, 0.9996]
+  
+  # Two-qubit gate fidelity
+  # Original sources: [1], [9], [3] - min: 0.92, max: 0.9981
+  F2: [0.92, 0.9981]
+  
+  # Coherence times (seconds)
+  # T1: donor spins (1s) vs hole spins (10μs)
+  T1: [1.0e-5, 1.0]
+  
+  # T2: Hahn echo times across different devices (245ns to 3.1ms with CPMG)
+  T2: [2.45e-7, 3.1e-3]
+  
+  # T2*: Ramsey dephasing times (360ns to 20μs)
+  T2_star: [3.6e-7, 2.0e-5]
+  
+  # Gate durations (seconds)
+  # Single-qubit gate: 60-70 ns across papers
+  t_single_gate: [6.0e-8, 7.0e-8]
+  
+  # Two-qubit gate: fixed at 40ns (C-Phase duration)
+  t_two_gate: [4.0e-8, 4.0e-8]
+  
+  # Coherent & crosstalk parameters
+  # Not specified in papers - use baseline defaults
+  single_qubit_overrotation_rad: null
+  coherent_axis: null
+  
+  # Residual ZZ coupling: fixed at 10 kHz
+  residual_zz_phase: [1.0e4, 1.0e4]
+  
+  # ZZ crosstalk: 0 to 40 kHz (from "<= 0.04 MHz" bound)
+  zz_crosstalk_strength: [0.0, 4.0e4]
+  
+  # Control crosstalk: 0.44% to 1.85% fidelity decrease
+  control_crosstalk_fraction: [0.0044, 0.0185]
+
+  # SPAM parameters 
+  # State preparation error: 0.6% to 2.5%
+  state_prep_error: [0.006, 0.025]
+  
+  # Measurement error (false positive): fixed at 0.03%
+  meas_error_1given0: [3.0e-4, 3.0e-4]
+  
+  # Measurement error (false negative): 0.2% to 1.9%
+  meas_error_0given1: [0.002, 0.019]
+  
+  # Readout time: fixed at 10μs
+  t_readout: [1.0e-5, 1.0e-5]
+
+  # Time-dependent / drift parameters
+  # Not specified in papers - use baseline defaults
+  coherent_drift_std: null
+  
+  # Frequency drift: fixed at ~6e-5 (from ±1 MHz drift on 15.9 GHz)
+  sigma_drift_fraction: [6.0e-5, 6.0e-5]

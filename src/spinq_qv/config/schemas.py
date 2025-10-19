@@ -57,23 +57,70 @@ class DeviceConfig(BaseModel):
         description="Two-qubit gate duration (seconds)"
     )
     
-    # SPAM parameters
-    F_readout: float = Field(
-        default=0.9997,
+    # Coherent error parameters
+    single_qubit_overrotation_rad: float = Field(
+        default=0.0,
+        description="Single-qubit systematic over-rotation angle (radians)"
+    )
+    coherent_axis: str = Field(
+        default='z',
+        description="Axis for single-qubit coherent errors (x, y, or z)"
+    )
+    residual_zz_phase: float = Field(
+        default=0.0,
+        description="Two-qubit residual ZZ coupling phase (radians)"
+    )
+    
+    # Crosstalk parameters (NEW - Improvement #2)
+    zz_crosstalk_strength: float = Field(
+        default=0.0,
+        description="Always-on ZZ crosstalk between neighbors (rad/s)"
+    )
+    control_crosstalk_fraction: float = Field(
+        default=0.0,
         ge=0.0,
         le=1.0,
-        description="Readout fidelity"
+        description="Control pulse leakage fraction to spectator qubits (0-1)"
     )
-    F_init: float = Field(
-        default=0.994,
+    
+    # SPAM parameters (NEW - Improvement #3)
+    state_prep_error: float = Field(
+        default=0.0,
         ge=0.0,
         le=1.0,
-        description="Initialization fidelity"
+        description="Probability of |1⟩ after reset (state prep error)"
     )
+    meas_error_1given0: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+        description="P(measure 1 | true state is |0⟩) - false positive rate"
+    )
+    meas_error_0given1: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+        description="P(measure 0 | true state is |1⟩) - false negative rate"
+    )
+    
+    # Readout time
     t_readout: float = Field(
         default=10e-6,
         gt=0.0,
         description="Readout time (seconds)"
+    )
+    
+    # Time-dependent noise parameters (NEW - Improvement #4)
+    coherent_drift_std: float = Field(
+        default=0.0,
+        ge=0.0,
+        description="Standard deviation of coherent error drift (radians)"
+    )
+    sigma_drift_fraction: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+        description="Relative drift in T2* noise magnitude (0-1)"
     )
     
     @field_validator("T2")
@@ -91,6 +138,14 @@ class DeviceConfig(BaseModel):
         if "T2" in info.data and v > info.data["T2"]:
             raise ValueError(f"T2* ({v}) cannot exceed T2 ({info.data['T2']})")
         return v
+    
+    @field_validator("coherent_axis")
+    @classmethod
+    def validate_coherent_axis(cls, v: str) -> str:
+        """Ensure coherent axis is valid."""
+        if v.lower() not in ['x', 'y', 'z']:
+            raise ValueError("coherent_axis must be 'x', 'y', or 'z'")
+        return v.lower()
 
 
 class SimulationConfig(BaseModel):

@@ -69,8 +69,9 @@ class AblationStudy:
             config_dict['metadata']['noise_toggles']['coherent_errors'] = False
         
         if disable_readout_error:
-            config_dict['device']['F_readout'] = 1.0
-            config_dict['device']['F_init'] = 1.0
+            config_dict['device']['state_prep_error'] = 0.0
+            config_dict['device']['meas_error_1given0'] = 0.0
+            config_dict['device']['meas_error_0given1'] = 0.0
         
         if disable_crosstalk:
             if 'noise_toggles' not in config_dict['metadata']:

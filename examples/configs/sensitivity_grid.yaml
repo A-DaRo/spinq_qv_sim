@@ -9,9 +9,22 @@ device:
   T2_star: 20.0e-6
   t_single_gate: 60.0e-9
   t_two_gate: 40.0e-9
-  F_readout: 0.9997
-  F_init: 0.994
+  # SPAM parameters (NEW)
+  state_prep_error: 0.006
+  meas_error_1given0: 0.00015
+  meas_error_0given1: 0.00015
   t_readout: 10.0e-6
+
+  # Coherent & crosstalk defaults
+  single_qubit_overrotation_rad: 0.0
+  coherent_axis: 'z'
+  residual_zz_phase: 0.0
+  zz_crosstalk_strength: 0.0
+  control_crosstalk_fraction: 0.0
+
+  # Time-dependent / drift defaults
+  coherent_drift_std: 0.0
+  sigma_drift_fraction: 0.0
 
 simulation:
   backend: "statevector"

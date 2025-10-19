@@ -77,8 +77,9 @@ def test_ablation_config_generation(test_config):
     ideal_config = next(cfg for label, cfg in configs if label == "ideal")
     assert ideal_config.device.F1 == 1.0
     assert ideal_config.device.F2 == 1.0
-    assert ideal_config.device.F_readout == 1.0
-    assert ideal_config.device.F_init == 1.0
+    assert ideal_config.device.state_prep_error == 0.0
+    assert ideal_config.device.meas_error_1given0 == 0.0
+    assert ideal_config.device.meas_error_0given1 == 0.0
     assert ideal_config.device.T1 == 1e6
     assert ideal_config.device.T2 == 1e6
     

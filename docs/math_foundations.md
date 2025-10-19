@@ -34,6 +34,20 @@ This document provides the complete mathematical derivations and formulas used i
 
 ### 2.1 Average Gate Fidelity → Depolarizing Probability
 
+**⚠️ IMPORTANT UPDATE (v2 Noise Model):**
+
+In the improved noise model (NoiseModelBuilderV2), gate fidelity is **NOT** directly converted to depolarizing probability. Instead, we use a **unified, constrained error model** where:
+
+1. **Decoherence errors** (from T1, T2, gate time) are computed first
+2. **Coherent errors** (systematic rotations, ZZ coupling) are added
+3. **Residual depolarizing** is calculated to match the target experimental fidelity
+
+This makes the model **time-dependent** and **physically grounded**.
+
+#### Legacy Conversion (v1 Model - Deprecated)
+
+The original model used direct conversion:
+
 #### Single-Qubit Gates
 
 **Given:** Average gate fidelity $F_1$ (e.g., $F_1 = 0.99926$)
@@ -446,5 +460,263 @@ $$
 
 ---
 
+---
+
 **Document Version History:**
 - v1.0 (2025-01-17): Initial complete derivation with all formulas validated against implementation
+- v2.0 (2025-10-18): Added unified noise model, crosstalk, SPAM errors, and time-dependent noise
+
+---
+
+## 7. Improved Noise Model (v2) - Unified Constrained Error Model
+
+### 7.1 Philosophy and Motivation
+
+**Problem with v1 Model:** The original noise model treated gate infidelity as an independent parameter, converting it directly to a large depolarizing probability. This approach:
+- Double-counted errors (fidelity AND decoherence were both applied)
+- Made the model insensitive to gate duration and coherence times
+- Was not physically grounded
+
+**v2 Solution:** Build errors bottom-up from physical mechanisms, then constrain total to match experiment.
+
+### 7.2 Unified Gate Error Construction
+
+For any gate with duration $\tau$:
+
+**Step 1: Compute Decoherence Fidelity**
+
+$$
+F_{\text{decoherence}}(\tau, T_1, T_2) = \text{Avg. Fidelity}[\mathcal{E}_{\text{amp}} \circ \mathcal{E}_{\phi}]
+$$
+
+where $\mathcal{E}_{\text{amp}}$ and $\mathcal{E}_{\phi}$ are amplitude and phase damping channels with probabilities:
+
+$$
+p_{\text{amp}} = 1 - e^{-\tau/T_1}, \quad p_{\phi} = 1 - e^{-\tau/T_\phi}
+$$
+
+**Step 2: Add Coherent Error**
+
+Apply systematic unitary error $U_{\text{err}}$:
+- Single-qubit: $U_{\text{err}} = R_{\text{axis}}(\epsilon)$ (over-rotation by angle $\epsilon$)
+- Two-qubit: $U_{\text{err}} = e^{-i\theta ZZ}$ (residual ZZ coupling)
+
+Compute fidelity loss:
+
+$$
+\text{Infidelity}_{\text{coherent}} = 1 - \frac{|\text{Tr}(U_{\text{err}}^\dagger U_{\text{ideal}})|^2}{d^2}
+$$
+
+where $d$ is the Hilbert space dimension (2 for single-qubit, 4 for two-qubit).
+
+$$
+F_{\text{coherent}} = 1 - \text{Infidelity}_{\text{coherent}}
+$$
+
+**Step 3: Compute Residual Depolarizing**
+
+The combined fidelity so far is:
+
+$$
+F_{\text{physical}} = F_{\text{decoherence}} \times F_{\text{coherent}}
+$$
+
+To match experimental target fidelity $F_{\text{exp}}$, add residual depolarizing:
+
+$$
+F_{\text{exp}} = F_{\text{physical}} \times F_{\text{dep, residual}}
+$$
+
+Solving for $p_{\text{dep, residual}}$:
+
+**Single-qubit:**
+$$
+F_{\text{dep}} = 1 - \frac{2p}{3} \implies p_{\text{residual}} = \frac{3}{2}\left(1 - \frac{F_{\text{exp}}}{F_{\text{physical}}}\right)
+$$
+
+**Two-qubit:**
+$$
+F_{\text{dep}} = 1 - \frac{4p}{5} \implies p_{\text{residual}} = \frac{5}{4}\left(1 - \frac{F_{\text{exp}}}{F_{\text{physical}}}\right)
+$$
+
+**Key Property:** If $F_{\text{physical}} \geq F_{\text{exp}}$, then $p_{\text{residual}} = 0$ (physical errors alone exceed experiment - no artificial depolarizing needed).
+
+### 7.3 Impact on Simulation
+
+This unified model makes QV results **sensitive to**:
+- **Gate duration $\tau$**: Longer gates → more decoherence → lower fidelity
+- **Coherence times $T_1, T_2$**: Shorter coherence → more decoherence
+- **Systematic errors**: Coherent errors can be MORE damaging than equivalent stochastic errors
+
+---
+
+## 8. Crosstalk Models
+
+### 8.1 ZZ Crosstalk (Always-On Parasitic Coupling)
+
+**Physics:** Neighboring qubits $i$ and $j$ always have some residual ZZ interaction.
+
+**Unitary:**
+
+$$
+U_{\text{ZZ}}(\zeta, t) = e^{-i\zeta ZZ t}
+$$
+
+where $\zeta$ is the crosstalk strength (rad/s) and $t$ is the duration.
+
+**Matrix form (diagonal in computational basis):**
+
+$$
+U_{\text{ZZ}} = \text{diag}(e^{-i\zeta t}, e^{i\zeta t}, e^{i\zeta t}, e^{-i\zeta t})
+$$
+
+**Application:** During any idle time or single-qubit gate on either qubit, apply this crosstalk unitary.
+
+### 8.2 Control Pulse Crosstalk
+
+**Physics:** When a control pulse targets qubit $i$ with rotation $R_i(\text{axis}, \theta)$, a fraction $\alpha$ leaks to neighboring qubit $j$.
+
+**Unitary:**
+
+$$
+U_{\text{crosstalk}} = R_i(\text{axis}, \theta) \otimes R_j(\text{axis}, \alpha\theta)
+$$
+
+where $\alpha \in [0.01, 0.1]$ typically.
+
+**Impact:** Spectator qubits accumulate unwanted rotations during parallel gate execution.
+
+---
+
+## 9. SPAM Error Models
+
+### 9.1 State Preparation Error
+
+Instead of initializing to pure $|0\rangle$, initialize to mixed state:
+
+$$
+\rho_{\text{init}} = (1 - p_{\text{prep}}) |0\rangle\langle 0| + p_{\text{prep}} |1\rangle\langle 1|
+$$
+
+where $p_{\text{prep}}$ is the probability of $|1\rangle$ after reset.
+
+**For multi-qubit:** Tensor product of single-qubit mixed states (assuming independent prep).
+
+### 9.2 Measurement POVM
+
+Real measurements have asymmetric errors. Model with Positive Operator-Valued Measure (POVM):
+
+**Measurement operators:**
+
+$$
+M_0 = \begin{pmatrix} \sqrt{1 - p_{1|0}} & 0 \\ 0 & \sqrt{p_{0|1}} \end{pmatrix}, \quad
+M_1 = \begin{pmatrix} \sqrt{p_{1|0}} & 0 \\ 0 & \sqrt{1 - p_{0|1}} \end{pmatrix}
+$$
+
+where:
+- $p_{1|0}$ = P(measure 1 | true state is $|0\rangle$) = false positive rate
+- $p_{0|1}$ = P(measure 0 | true state is $|1\rangle$) = false negative rate
+
+**Completeness relation:**
+
+$$
+M_0^\dagger M_0 + M_1^\dagger M_1 = I
+$$
+
+**Measurement probability:**
+
+$$
+P(\text{outcome } k | \rho) = \text{Tr}(M_k^\dagger M_k \rho)
+$$
+
+**Typical asymmetry:** Often $p_{1|0} \ll p_{0|1}$ (easier to distinguish $|1\rangle$ from $|0\rangle$ than vice versa).
+
+---
+
+## 10. Time-Dependent and Non-Markovian Noise
+
+### 10.1 Drifting Quasi-Static Noise Magnitude
+
+The quasi-static detuning magnitude $\sigma$ itself can vary over time:
+
+$$
+\sigma_{\text{run}} \sim \mathcal{N}(\sigma_{\text{mean}}, \sigma_{\text{drift}}^2)
+$$
+
+Sample once per experimental session (e.g., each campaign run).
+
+Then sample detuning for each circuit:
+
+$$
+\Delta_{\text{circuit}} \sim \mathcal{N}(0, \sigma_{\text{run}}^2)
+$$
+
+**Effect:** Increases run-to-run variability in HOP, mimicking real device drift.
+
+### 10.2 Calibration Drift (Drifting Coherent Errors)
+
+Systematic errors are not perfectly stable - they drift due to calibration imperfections:
+
+$$
+\epsilon_{\text{circuit}} = \epsilon_{\text{mean}} + \delta\epsilon
+$$
+
+where $\delta\epsilon \sim \mathcal{N}(0, \sigma_{\text{calibration}}^2)$ sampled per circuit or per run.
+
+**Effect:** Different circuits see slightly different coherent error angles, mimicking real-world calibration drift.
+
+---
+
+## 11. Channel Composition and Fidelity Calculation
+
+### 11.1 Composing Kraus Channels
+
+For channels $\mathcal{E}_1$ and $\mathcal{E}_2$ with Kraus operators $\{K^{(1)}_i\}$ and $\{K^{(2)}_j\}$:
+
+The composed channel $\mathcal{E}_2 \circ \mathcal{E}_1$ has Kraus operators:
+
+$$
+\{K^{(2)}_j K^{(1)}_i\}_{i,j}
+$$
+
+**Implementation:**
+```python
+composed_kraus = [K2 @ K1 for K2 in kraus2 for K1 in kraus1]
+```
+
+### 11.2 Average Gate Fidelity from Kraus Operators
+
+Given Kraus operators $\{K_i\}$ for a channel, the average gate fidelity is:
+
+$$
+F_{\text{avg}} = \frac{\sum_i |\text{Tr}(K_i)|^2 + d}{d(d+1)}
+$$
+
+where $d$ is the Hilbert space dimension.
+
+**Derivation:** From the definition of average fidelity over Haar-random input states.
+
+**Implementation:**
+```python
+def compute_channel_fidelity(kraus_ops, dim=2):
+    trace_squares = sum(abs(np.trace(K))**2 for K in kraus_ops)
+    return (trace_squares + dim) / (dim * (dim + 1))
+```
+
+---
+
+## 12. Updated References for v2 Model
+
+8. **Crosstalk in Superconducting Qubits:** Sarovar et al., "Detecting crosstalk errors in quantum information processors," *Quantum* 4, 321 (2020).
+
+9. **POVM Measurements:** Lundeen et al., "Experimental joint weak measurement on a photon pair," *Phys. Rev. Lett.* 102, 020404 (2009).
+
+10. **1/f Noise in Semiconductor Qubits:** Paladino et al., "1/f noise: Implications for solid-state quantum information," *Rev. Mod. Phys.* 86, 361 (2014).
+
+11. **Calibration Drift:** Kelly et al., "State preservation by repetitive error detection in a superconducting quantum circuit," *Nature* 519, 66–69 (2015).
+
+---
+
+**Document Version History:**
+- v1.0 (2025-01-17): Initial complete derivation with all formulas validated against implementation
+- v2.0 (2025-10-18): Added unified noise model, crosstalk, SPAM errors, and time-dependent noise

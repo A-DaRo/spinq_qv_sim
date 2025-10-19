@@ -50,8 +50,10 @@ def test_default_device_config():
     assert config.T2_star == 20e-6
     assert config.t_single_gate == 60e-9
     assert config.t_two_gate == 40e-9
-    assert config.F_readout == 0.9997
-    assert config.F_init == 0.994
+    # Legacy SPAM fields removed; check new SPAM error parameters instead
+    assert pytest.approx(config.state_prep_error, rel=1e-12) == 0.006
+    assert pytest.approx(config.meas_error_1given0, rel=1e-12) == 0.00015
+    assert pytest.approx(config.meas_error_0given1, rel=1e-12) == 0.00015
 
 
 def test_default_simulation_config():
@@ -180,6 +182,10 @@ def test_load_defaults_yaml():
     assert config.device.F2 == 0.998
     assert config.simulation.backend == "statevector"
     assert config.simulation.n_circuits == 50
+    # Verify SPAM defaults loaded correctly
+    assert pytest.approx(config.device.state_prep_error, rel=1e-12) == 0.006
+    assert pytest.approx(config.device.meas_error_1given0, rel=1e-12) == 0.00015
+    assert pytest.approx(config.device.meas_error_0given1, rel=1e-12) == 0.00015
 
 
 def test_logger_creation():

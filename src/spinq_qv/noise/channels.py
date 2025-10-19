@@ -3,9 +3,11 @@ Kraus channel implementations for common noise processes.
 
 Provides amplitude damping, phase damping (dephasing), and depolarizing
 Kraus operators with numerically stable formulas.
+
+Also includes SPAM (State Preparation And Measurement) error models.
 """
 
-from typing import List
+from typing import List, Tuple
 import numpy as np
 
 
@@ -170,3 +172,156 @@ def is_trace_preserving(kraus_ops: List[np.ndarray], atol: float = 1e-12) -> boo
 
     I = np.eye(dim, dtype=np.complex128)
     return np.allclose(accum, I, atol=atol)
+
+
+def compute_channel_fidelity(kraus_ops: List[np.ndarray], dim: int = 2) -> float:
+    """
+    Compute average gate fidelity of a quantum channel represented by Kraus operators.
+    
+    Average fidelity is defined as:
+        F_avg = (Tr(M^† M) + d) / (d(d+1))
+    
+    where M is the superoperator representation and d is the Hilbert space dimension.
+    
+    For computational efficiency, we use:
+        F_avg = (1/(d+1)) * [ (1/d) * sum_i Tr(K_i^† K_i) + sum_i |Tr(K_i)|^2 ]
+    
+    Args:
+        kraus_ops: List of Kraus operators for the channel
+        dim: Hilbert space dimension (2 for single qubit, 4 for two qubits)
+    
+    Returns:
+        Average gate fidelity in [0, 1]
+    """
+    if not kraus_ops:
+        raise ValueError("kraus_ops cannot be empty")
+    
+    # Check trace preservation
+    trace_sum = sum(np.trace(K.conj().T @ K) for K in kraus_ops)
+    if not np.isclose(trace_sum, dim, atol=1e-10):
+        raise ValueError(f"Channel is not trace-preserving: Tr sum = {trace_sum}, expected {dim}")
+    
+    # Compute fidelity using formula from Nielsen & Chuang
+    # F_avg = (sum_i |Tr(K_i)|^2 + d) / (d * (d+1))
+    trace_squares = sum(abs(np.trace(K))**2 for K in kraus_ops)
+    
+    F_avg = (trace_squares + dim) / (dim * (dim + 1))
+    
+    return float(np.real(F_avg))
+
+
+def compose_kraus_channels(kraus_list1: List[np.ndarray], kraus_list2: List[np.ndarray]) -> List[np.ndarray]:
+    """
+    Compose two quantum channels represented by Kraus operators.
+    
+    For channels E1(ρ) = sum_i K1_i ρ K1_i^† and E2(ρ) = sum_j K2_j ρ K2_j^†,
+    the composition E2(E1(ρ)) has Kraus operators {K2_j K1_i}.
+    
+    Args:
+        kraus_list1: Kraus operators for first channel (applied first)
+        kraus_list2: Kraus operators for second channel (applied second)
+    
+    Returns:
+        List of composed Kraus operators
+    """
+    composed = []
+    for K2 in kraus_list2:
+        for K1 in kraus_list1:
+            composed.append(K2 @ K1)
+    
+    return composed
+
+
+def state_prep_error_dm(p_excited: float) -> np.ndarray:
+    """
+    Create imperfect initial state density matrix for single qubit.
+    
+    Instead of pure |0⟩, initialize to mixed state:
+        ρ_0 = (1 - p) |0⟩⟨0| + p |1⟩⟨1|
+    
+    Args:
+        p_excited: Probability of being in |1⟩ state after reset
+    
+    Returns:
+        2x2 density matrix
+    """
+    if p_excited < 0 or p_excited > 1:
+        raise ValueError("p_excited must be in [0, 1]")
+    
+    rho = np.array([
+        [1.0 - p_excited, 0.0],
+        [0.0, p_excited]
+    ], dtype=np.complex128)
+    
+    return rho
+
+
+def measurement_povm_operators(p_1given0: float, p_0given1: float) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Create POVM (Positive Operator-Valued Measure) for asymmetric measurement errors.
+    
+    Returns measurement operators M_0, M_1 such that:
+        P(measure 0 | state ρ) = Tr(M_0^† M_0 ρ)
+        P(measure 1 | state ρ) = Tr(M_1^† M_1 ρ)
+    
+    Args:
+        p_1given0: P(measure 1 | true state is |0⟩) - false positive rate
+        p_0given1: P(measure 0 | true state is |1⟩) - false negative rate
+    
+    Returns:
+        (M_0, M_1): POVM operators as 2x2 matrices
+    """
+    if not (0 <= p_1given0 <= 1 and 0 <= p_0given1 <= 1):
+        raise ValueError("POVM probabilities must be in [0, 1]")
+    
+    # M_0 = [[sqrt(1 - p_1given0), 0], [0, sqrt(p_0given1)]]
+    # M_1 = [[sqrt(p_1given0), 0], [0, sqrt(1 - p_0given1)]]
+    
+    M_0 = np.array([
+        [np.sqrt(1.0 - p_1given0), 0.0],
+        [0.0, np.sqrt(p_0given1)]
+    ], dtype=np.complex128)
+    
+    M_1 = np.array([
+        [np.sqrt(p_1given0), 0.0],
+        [0.0, np.sqrt(1.0 - p_0given1)]
+    ], dtype=np.complex128)
+    
+    # Verify completeness: M_0^† M_0 + M_1^† M_1 = I
+    completeness = M_0.conj().T @ M_0 + M_1.conj().T @ M_1
+    if not np.allclose(completeness, np.eye(2), atol=1e-10):
+        raise ValueError("POVM operators do not satisfy completeness relation")
+    
+    return M_0, M_1
+
+
+def apply_povm_measurement(state: np.ndarray, M_operators: List[np.ndarray]) -> List[float]:
+    """
+    Apply POVM measurement to a quantum state and return outcome probabilities.
+    
+    Args:
+        state: Density matrix (2x2 for single qubit) or state vector
+        M_operators: List of POVM operators
+    
+    Returns:
+        List of probabilities for each measurement outcome
+    """
+    # Convert state vector to density matrix if needed
+    if state.ndim == 1:
+        state_dm = np.outer(state, state.conj())
+    else:
+        state_dm = state
+    
+    probs = []
+    for M in M_operators:
+        # P(outcome) = Tr(M^† M ρ)
+        prob = np.real(np.trace(M.conj().T @ M @ state_dm))
+        probs.append(float(prob))
+    
+    # Normalize to handle numerical errors
+    total = sum(probs)
+    if total > 0:
+        probs = [p / total for p in probs]
+    
+    return probs
+

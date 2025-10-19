@@ -93,20 +93,25 @@ class TestDeviceConfigValidation:
         with pytest.raises(ValidationError, match="greater than 0"):
             DeviceConfig(t_readout=0)
     
-    def test_spam_fidelities_in_range(self):
-        """Test SPAM fidelities must be in [0, 1]."""
+    def test_spam_errors_in_range(self):
+        """Test SPAM error parameters must be in [0, 1]."""
         # Valid
-        config = DeviceConfig(F_readout=0.999, F_init=0.99)
-        assert config.F_readout == 0.999
-        assert config.F_init == 0.99
+        config = DeviceConfig(
+            state_prep_error=0.01,
+            meas_error_1given0=0.005,
+            meas_error_0given1=0.008
+        )
+        assert config.state_prep_error == 0.01
+        assert config.meas_error_1given0 == 0.005
+        assert config.meas_error_0given1 == 0.008
         
-        # Invalid F_readout
+        # Invalid state_prep_error
         with pytest.raises(ValidationError):
-            DeviceConfig(F_readout=1.5)
+            DeviceConfig(state_prep_error=1.5)
         
-        # Invalid F_init
+        # Invalid meas_error_1given0
         with pytest.raises(ValidationError):
-            DeviceConfig(F_init=-0.1)
+            DeviceConfig(meas_error_1given0=-0.1)
     
     def test_default_values_are_valid(self):
         """Test that default configuration is physically valid."""
@@ -115,8 +120,11 @@ class TestDeviceConfigValidation:
         # Check fidelities
         assert 0 <= config.F1 <= 1
         assert 0 <= config.F2 <= 1
-        assert 0 <= config.F_readout <= 1
-        assert 0 <= config.F_init <= 1
+        
+        # Check SPAM errors
+        assert 0 <= config.state_prep_error <= 1
+        assert 0 <= config.meas_error_1given0 <= 1
+        assert 0 <= config.meas_error_0given1 <= 1
         
         # Check coherence constraints
         assert config.T2 <= 2 * config.T1

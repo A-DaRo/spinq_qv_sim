@@ -1,0 +1,88 @@
+{
+  "campaign_name": "experimental_lhs_production",
+  "campaign_type": "experimental_lhs",
+  "timestamp": "2025-10-19T14:21:10.478569",
+  "base_config": "examples\\configs\\production.yaml",
+  "experimental_ranges_source": "examples/configs/experiments.yaml",
+  "sampling_method": "Latin Hypercube Sampling (LHS)",
+  "n_samples": 5,
+  "random_seed": 42,
+  "n_configurations": 5,
+  "swept_parameters": {
+    "F1": {
+      "min": 0.994,
+      "max": 0.9996,
+      "range": 0.005600000000000049
+    },
+    "F2": {
+      "min": 0.92,
+      "max": 0.9981,
+      "range": 0.07809999999999995
+    },
+    "T1": {
+      "min": 1e-05,
+      "max": 1.0,
+      "range": 0.99999
+    },
+    "T2": {
+      "min": 2.45e-07,
+      "max": 0.0031,
+      "range": 0.003099755
+    },
+    "T2_star": {
+      "min": 3.6e-07,
+      "max": 2e-05,
+      "range": 1.9640000000000002e-05
+    },
+    "t_single_gate": {
+      "min": 6e-08,
+      "max": 7e-08,
+      "range": 1.000000000000001e-08
+    },
+    "zz_crosstalk_strength": {
+      "min": 0.0,
+      "max": 40000.0,
+      "range": 40000.0
+    },
+    "control_crosstalk_fraction": {
+      "min": 0.0044,
+      "max": 0.0185,
+      "range": 0.014099999999999998
+    },
+    "state_prep_error": {
+      "min": 0.006,
+      "max": 0.025,
+      "range": 0.019000000000000003
+    },
+    "meas_error_0given1": {
+      "min": 0.002,
+      "max": 0.019,
+      "range": 0.017
+    }
+  },
+  "fixed_parameters": {
+    "t_two_gate": 4e-08,
+    "residual_zz_phase": 10000.0,
+    "meas_error_1given0": 0.0003,
+    "t_readout": 1e-05,
+    "sigma_drift_fraction": 6e-05
+  },
+  "null_parameters": [
+    "single_qubit_overrotation_rad",
+    "coherent_axis",
+    "coherent_drift_std"
+  ],
+  "parameter_sources": {
+    "F1": "Papers [4], [11], [1] - range: 0.994 to 0.9996",
+    "F2": "Papers [1], [9], [3] - range: 0.92 to 0.9981",
+    "T1": "Papers [5], [6] - range: 10\u03bcs to 1s",
+    "T2": "Papers [1], [4], [7] - range: 245ns to 3.1ms",
+    "T2_star": "Papers [4], [1], [2] - range: 360ns to 20\u03bcs",
+    "t_single_gate": "Papers [1], [4] - range: 60-70ns",
+    "t_two_gate": "Paper [1] - fixed: 40ns",
+    "zz_crosstalk_strength": "Paper [11] - range: 0 to 40kHz",
+    "control_crosstalk_fraction": "Paper [3] - range: 0.44% to 1.85%",
+    "state_prep_error": "Paper [1] - range: 0.6% to 2.5%",
+    "meas_error_0given1": "Paper [1] - range: 0.2% to 1.9%"
+  }
+}

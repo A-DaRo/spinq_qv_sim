@@ -192,8 +192,8 @@ python examples/run_parameter_campaign.py \
 | **T2*** (Ramsey) | 20 µs | Quasi-static dephasing |
 | **Single-qubit gate time** | 60 ns | EDSR π/2 pulse |
 | **Two-qubit gate time** | 40 ns | CZ gate |
-| **Readout fidelity** | 99.97% | Best reported |
-| **Initialization fidelity** | 99.4% | Experimental |
+| **State preparation error** (`state_prep_error`) | 0.6% (0.006) | 1 - initialization fidelity (e.g. 1 - 0.994) |
+| **Readout error (symmetric)** (`meas_error_1given0` / `meas_error_0given1`) | 0.015% each (0.00015) | Symmetric false-positive/false-negative rates derived from readout fidelity (e.g. (1 - 0.9997)/2) |
 
 ### Noise Conversion Formulas
 
@@ -339,7 +339,7 @@ A **campaign** is a multi-configuration experiment exploring parameter space:
 | Type | Parameters | Use Case |
 |------|-----------|----------|
 | **comprehensive** | F1, F2, T1, T2, gate times | Full exploration |
-| **fidelity_focus** | F1, F2, F_readout, F_init | Gate optimization |
+| **fidelity_focus** | F1, F2, state_prep_error, meas_error_1given0/meas_error_0given1 | Gate optimization |
 | **coherence_focus** | T1, T2, T2* | Materials research |
 | **timing_focus** | t_single, t_two, t_readout | Speed-accuracy tradeoffs |
 

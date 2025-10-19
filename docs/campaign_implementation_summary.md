@@ -71,7 +71,7 @@ Each sweep type targets specific use cases:
 | Sweep Type | Parameters | Points | Use Case |
 |------------|-----------|--------|----------|
 | Comprehensive | F1, F2, T1, T2, t_single, t_two | 6×n | Full exploration |
-| Fidelity Focus | F1, F2, F_readout, F_init | 4×2n | Gate calibration |
+| Fidelity Focus | F1, F2, state_prep_error, meas_error_1given0/meas_error_0given1 | 4×2n | Gate calibration |
 | Coherence Focus | T1, T2, T2* | 3×2n | Materials study |
 | Timing Focus | t_single, t_two, t_readout | 3×2n | Speed optimization |
 

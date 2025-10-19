@@ -4,10 +4,23 @@ device:
   T1: 2.0
   T2: 0.0002
   T2_star: 0.00015
-  single_qubit_gate_time: 40.0e-9
-  two_qubit_gate_time: 150.0e-9
-  readout_fidelity: 0.995
-  preparation_fidelity: 0.998
+  t_single_gate: 40.0e-9
+  t_two_gate: 150.0e-9
+  # SPAM (mapped from readout/preparation fidelities)
+  state_prep_error: 0.002              # 1 - 0.998
+  meas_error_1given0: 0.0025           # (1 - 0.995)/2
+  meas_error_0given1: 0.0025           # (1 - 0.995)/2
+
+  # Coherent & crosstalk defaults (explicit)
+  single_qubit_overrotation_rad: 0.0
+  coherent_axis: 'z'
+  residual_zz_phase: 0.0
+  zz_crosstalk_strength: 0.0
+  control_crosstalk_fraction: 0.0
+
+  # Time-dependent / drift defaults
+  coherent_drift_std: 0.0
+  sigma_drift_fraction: 0.0
 
 simulation:
   backend: statevector

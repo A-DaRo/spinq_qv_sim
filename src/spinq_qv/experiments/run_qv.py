@@ -200,8 +200,9 @@ def print_config_summary(config: Config, output_dir: Path, seed: int) -> None:
             "T2_star_seconds": config.device.T2_star,
             "single_gate_time_ns": config.device.t_single_gate * 1e9,
             "two_gate_time_ns": config.device.t_two_gate * 1e9,
-            "F_readout": config.device.F_readout,
-            "F_init": config.device.F_init,
+            "state_prep_error": config.device.state_prep_error,
+            "meas_error_1given0": config.device.meas_error_1given0,
+            "meas_error_0given1": config.device.meas_error_0given1,
         },
         "simulation_parameters": {
             "backend": config.simulation.backend,

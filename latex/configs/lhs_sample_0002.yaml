@@ -1,34 +1,38 @@
 device:
-  F1: 0.99926
-  F2: 0.998
-  T1: 1.0
-  T2: 9.9e-05
-  T2_star: 2.0e-05
-  t_single_gate: 6.0e-08
+  F1: 0.9981410521925466
+  F2: 0.9969560691258151
+  T1: 0.9263336164956147
+  T2: 0.002507205188403558
+  T2_star: 1.6816243498483075e-05
+  t_single_gate: 6.133962798936502e-08
   t_two_gate: 4.0e-08
-  state_prep_error: 0.006
-  meas_error_1given0: 0.00015
-  meas_error_0given1: 0.00015
-  t_readout: 1.0e-05
-
-  # Coherent & crosstalk defaults
   single_qubit_overrotation_rad: 0.0
-  coherent_axis: 'z'
-  residual_zz_phase: 0.0
-  zz_crosstalk_strength: 0.0
-  control_crosstalk_fraction: 0.0
-
-  # Time-dependent / drift defaults
+  coherent_axis: z
+  residual_zz_phase: 10000.0
+  zz_crosstalk_strength: 10306.624831441954
+  control_crosstalk_fraction: 0.012241655867481951
+  state_prep_error: 0.01574789720462852
+  meas_error_1given0: 0.0003
+  meas_error_0given1: 0.002104780637530994
+  t_readout: 1.0e-05
   coherent_drift_std: 0.0
-  sigma_drift_fraction: 0.0
+  sigma_drift_fraction: 6.0e-05
 simulation:
   backend: statevector
-  n_circuits: 5
-  n_shots: 100
+  n_circuits: 100
+  n_shots: 5000
   widths:
   - 2
   - 3
   - 4
+  - 5
+  - 6
+  - 7
+  - 8
+  - 9
+  - 10
+  - 11
+  - 12
   random_seed: 42
 metadata:
   experiment_name: production_qv_campaign
