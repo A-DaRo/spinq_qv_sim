@@ -448,7 +448,7 @@ $$
 
 2. **Depolarizing Channel Fidelity:** Nielsen & Chuang, "Quantum Computation and Quantum Information," Cambridge University Press (2010), Section 8.3.3.
 
-3. **Kraus Operators:** Preskill, "Lecture Notes for Physics 219: Quantum Computation," Chapter 3. [Online](http://theory.caltech.edu/~preskill/ph219/)
+3. **Kraus Operators:** Preskill, "Lecture Notes for Physics 219: Quantum Computation," Chapter 3. [Lecture Notes]((https://www.preskill.caltech.edu/ph219/topological.pdf))
 
 4. **Bootstrap Methods:** Efron & Tibshirani, "An Introduction to the Bootstrap," Chapman & Hall (1993).
 
