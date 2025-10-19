@@ -1,12 +1,14 @@
 # spinq_qv_sim
 
-**Physics-first Quantum Volume simulator for Si/SiGe spin qubits**
+**Quantum Volume simulator for Si/SiGe spin qubits**
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Tests](https://img.shields.io/badge/tests-167%20passing-brightgreen.svg)](tests/)
 
 A production-ready simulator for estimating **Quantum Volume (QV)** of Si/SiGe spin-qubit devices using physically realistic noise models. Built from experimental parameters (gate fidelities, coherence times, SPAM errors) with full support for sensitivity analysis, error budgeting, and campaign-based parameter sweeps.
+
+This project has been developed for the scope of the course 34IQT **Introduction to Quantum Technologies** offered by the Technical University of Eindhoven.
 
 ---
 
@@ -789,11 +791,7 @@ MIT License - see [LICENSE](LICENSE) file.
 
 ## 🙏 Acknowledgments
 
-- **IBM Quantum** - QV benchmark methodology
-- **QuTiP team** - Quantum simulation foundations
-- **Si/SiGe community** - Experimental parameter data
-- **TU/e IQT Group** - Project supervision
-
+- **Coherence and Quantum Technology Group** of the University of Eindhoven
 ---
 
 ## 📊 Quick Reference
