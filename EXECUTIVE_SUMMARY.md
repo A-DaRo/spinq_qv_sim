@@ -561,32 +561,6 @@ Performance characteristics and empirical timing vary by hardware and configurat
 
 ---
 
-## Intellectual Property & Licensing
-
-**License**: MIT License
-
-**Allows**:
-✅ Commercial use  
-✅ Modification  
-✅ Distribution  
-✅ Private use
-
-**Requires**:
-- License and copyright notice included
-
-**Prohibits**:
-- No warranty provided (AS IS)
-- No liability for authors
-
-**Attribution**:
-```
-spinq_qv_sim: Quantum Volume Simulator for Si/SiGe Spin Qubits
-© 2025 spinq_qv_sim Contributors
-https://github.com/A-DaRo/spinq_qv_sim
-```
-
----
-
 ## Getting Started
 
 ### 5-Minute Quick Start
@@ -629,18 +603,7 @@ Expected output: QV determination, HOP plot, statistical summary
 
 **Discussions**: [GitHub Discussions](https://github.com/A-DaRo/spinq_qv_sim/discussions)
 
-**Contributing**: See `CONTRIBUTING.md` (pull requests welcome!)
-
-**Citation**: 
-```bibtex
-@software{spinq_qv_sim,
-  title = {spinq\_qv\_sim: Quantum Volume Simulator for Si/SiGe Spin Qubits},
-  author = {{spinq\_qv\_sim Contributors}},
-  year = {2025},
-  url = {https://github.com/A-DaRo/spinq_qv_sim},
-  version = {1.0.0}
-}
-```
+**Author Contact**: Alessandro Da Ros (a.da.ros@student.tue.nl)
 
 ---
 
@@ -659,6 +622,6 @@ Primary utility: structured exploration of how specific physical parameters (F�
 
 ---
 
-**Last Updated**: January 17, 2025  
+**Last Updated**: October 19, 2025  
 **Version**: 1.0.0  
 **License**: MIT
